@@ -751,15 +751,19 @@
 
   pregenerateBtn.addEventListener('click', async () => {
     pregenerateBtn.disabled = true;
-    pregenerateStatus.textContent = 'Generando clips de nombres...';
+    pregenerateStatus.textContent = 'Generando clips de hasta 60 nombres con Gemini...';
     try {
       const res = await fetch('/api/pregenerate-common-names', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ limit: 15 }),
+        body: JSON.stringify({ limit: 60 }),
       }).then((r) => r.json());
 
-      pregenerateStatus.textContent = `✅ Listo: ${res.created} nuevos, ${res.alreadyCached} ya estaban en caché.`;
+      if (res.quotaReached) {
+        pregenerateStatus.textContent = `⏳ Creados ${res.created} nuevos (${res.alreadyCached} ya estaban). Quedan ${res.remainingCount} para cuando se renueve la cuota.`;
+      } else {
+        pregenerateStatus.textContent = `✅ Listo: ${res.created} nuevos, ${res.alreadyCached} ya estaban en caché.`;
+      }
       await loadCreatorStats();
     } catch (err) {
       pregenerateStatus.textContent = `❌ Error: ${err.message}`;

@@ -1020,7 +1020,7 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && pathname === '/api/pregenerate-common-names') {
       const body = await readJsonBody(req).catch(() => ({}));
-      const result = await voiceEngine.pregenerateCommonNames(body.limit || 15);
+      const result = await voiceEngine.pregenerateCommonNames(body.limit || 60);
       return sendJson(res, 200, {
         ok: true,
         ...result,
