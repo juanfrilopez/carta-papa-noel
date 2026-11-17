@@ -10,11 +10,18 @@ import json
 import math
 import shutil
 import subprocess
+import sys
 import wave
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+from render_overlay import FONT_HANDWRITING, SCROLL_VIEWPORT, load_font, wrap_text_px  # noqa: E402
 
 FFMPEG_BIN = shutil.which("ffmpeg") or "/opt/homebrew/bin/ffmpeg"
 WIDTH = 1280
@@ -113,6 +120,90 @@ def prepare_overlay_bands(overlay_png: Path):
     return bands
 
 
+def prepare_scrolling_letter(letter_text: str, child_name: str):
+    """Pre-renderiza toda la carta en una tira RGBA compacta lista para hacer scroll."""
+    clean_text = (letter_text or "").strip()
+    if not clean_text:
+        return None
+
+    vx1, vy1, vx2, vy2 = SCROLL_VIEWPORT
+    vw = vx2 - vx1
+    vh = vy2 - vy1
+    max_text_w = vw - 28  # 14 px de margen a cada lado
+
+    font_greet = load_font(FONT_HANDWRITING, 24, weight=640)
+    font_body = load_font(FONT_HANDWRITING, 23, weight=560)
+    font_sign = load_font(FONT_HANDWRITING, 24, weight=640)
+
+    dummy_img = Image.new("RGBA", (vw, 64), (0, 0, 0, 0))
+    dummy_draw = ImageDraw.Draw(dummy_img)
+
+    # Construir lista de tuplas (texto, y_step, font, color)
+    items: list[tuple[str, int, object, tuple[int, int, int, int]]] = []
+    items.append(("Querido Papá Noel:", 34, font_greet, (132, 24, 30, 255)))
+
+    paragraphs = [p for p in clean_text.replace("\r\n", "\n").split("\n") if p.strip()]
+    for p_idx, para in enumerate(paragraphs):
+        wrapped = wrap_text_px(dummy_draw, para, font_body, max_text_w)
+        for line in wrapped:
+            items.append((line, 28, font_body, (54, 30, 16, 252)))
+        if p_idx < len(paragraphs) - 1:
+            items.append(("", 8, font_body, (54, 30, 16, 0)))
+
+    safe_child = (child_name or "").strip() or "tu peque"
+    sign_lines = wrap_text_px(dummy_draw, f"— Con cariño, {safe_child}", font_sign, max_text_w)
+    if sign_lines:
+        items.append(("", 8, font_body, (0, 0, 0, 0)))
+        for sline in sign_lines:
+            items.append((sline, 30, font_sign, (132, 24, 30, 255)))
+
+    content_h = sum(step for _, step, _, _ in items)
+    pad_top = 16
+    pad_bot = 16
+    total_h = pad_top + content_h + pad_bot
+
+    if total_h <= vh:
+        strip_h = vh
+        y_cursor = max(10, (vh - content_h) // 2)
+        max_scroll = 0.0
+    else:
+        strip_h = total_h
+        y_cursor = pad_top
+        max_scroll = float(strip_h - vh)
+
+    strip_img = Image.new("RGBA", (vw, strip_h), (246, 232, 198, 0))
+    sdraw = ImageDraw.Draw(strip_img)
+    for text_line, step, font_obj, color in items:
+        if text_line:
+            sdraw.text((14, y_cursor), text_line, font=font_obj, fill=color)
+        y_cursor += step
+
+    arr = np.asarray(strip_img, dtype=np.float32)
+    strip_alpha = arr[..., 3:4] / 255.0
+    strip_premult = arr[..., :3] * strip_alpha
+
+    # Máscara suave de entrada/salida en los extremos superior e inferior de la ventana
+    fade_px = 14
+    fade_1d = np.ones((vh,), dtype=np.float32)
+    fade_1d[:fade_px] = np.linspace(0.0, 1.0, fade_px, dtype=np.float32)
+    fade_1d[-fade_px:] = np.linspace(1.0, 0.0, fade_px, dtype=np.float32)
+    fade_mask = fade_1d[:, None, None]
+
+    return {
+        "vw": vw,
+        "vh": vh,
+        "vx1": vx1,
+        "vy1": vy1,
+        "vx2": vx2,
+        "vy2": vy2,
+        "strip_h": strip_h,
+        "max_scroll": max_scroll,
+        "premult": strip_premult,
+        "alpha": strip_alpha,
+        "fade_mask": fade_mask,
+    }
+
+
 def render_synced(
     base_video: Path,
     tracks_json: Path,
@@ -120,6 +211,8 @@ def render_synced(
     bgm_wav: Path,
     overlay_png: Path,
     output_mp4: Path,
+    letter_text: str = "",
+    child_name: str = "",
 ) -> float:
     tracks_data = json.loads(tracks_json.read_text(encoding="utf-8"))
     fps = float(tracks_data.get("fps", 24.0))
@@ -129,6 +222,7 @@ def render_synced(
     n_frames_out = len(env)
     frame_bytes = WIDTH * HEIGHT * 3
     overlay_bands = prepare_overlay_bands(overlay_png)
+    letter_scroll = prepare_scrolling_letter(letter_text, child_name)
 
     # Precalcular rejilla local para la subregión del bigote/barba (250x190)
     sub_w = 250
@@ -234,6 +328,47 @@ def render_synced(
                 band = frame[by0:by1].astype(np.float32)
                 frame[by0:by1] = np.clip(band * one_m_a + rgb_pre, 0, 255).astype(np.uint8)
 
+            # Desplazar suavemente la carta completa dentro de la ventana del pergamino
+            if letter_scroll is not None:
+                ls = letter_scroll
+                max_scroll = ls["max_scroll"]
+                if max_scroll <= 0.5:
+                    scroll_y = 0.0
+                else:
+                    t_sec = k / fps
+                    t_start = 1.0
+                    t_end_limit = max(t_start + 1.5, total_duration - 2.0)
+                    available = t_end_limit - t_start
+                    speed = max(7.5, max_scroll / available)
+                    t_finish = min(t_end_limit, t_start + max_scroll / speed)
+                    if t_sec <= t_start:
+                        scroll_y = 0.0
+                    elif t_sec >= t_finish:
+                        scroll_y = max_scroll
+                    else:
+                        scroll_y = ((t_sec - t_start) / (t_finish - t_start)) * max_scroll
+
+                vh = ls["vh"]
+                strip_h = ls["strip_h"]
+                y0 = int(scroll_y)
+                frac = scroll_y - y0
+                if y0 + vh < strip_h and frac > 1e-4:
+                    win_pre = ls["premult"][y0 : y0 + vh] * (1.0 - frac) + ls["premult"][y0 + 1 : y0 + 1 + vh] * frac
+                    win_a = ls["alpha"][y0 : y0 + vh] * (1.0 - frac) + ls["alpha"][y0 + 1 : y0 + 1 + vh] * frac
+                else:
+                    y0c = min(y0, strip_h - vh)
+                    win_pre = ls["premult"][y0c : y0c + vh]
+                    win_a = ls["alpha"][y0c : y0c + vh]
+
+                if max_scroll > 0.5:
+                    win_pre = win_pre * ls["fade_mask"]
+                    win_a = win_a * ls["fade_mask"]
+
+                roi = frame[ls["vy1"] : ls["vy2"], ls["vx1"] : ls["vx2"]].astype(np.float32)
+                frame[ls["vy1"] : ls["vy2"], ls["vx1"] : ls["vx2"]] = np.clip(
+                    roi * (1.0 - win_a) + win_pre, 0, 255
+                ).astype(np.uint8)
+
             proc.stdin.write(frame.tobytes())
     finally:
         try:
@@ -261,6 +396,8 @@ def main():
     parser.add_argument("--bgm-wav", required=True)
     parser.add_argument("--overlay-png", required=True)
     parser.add_argument("--output-mp4", required=True)
+    parser.add_argument("--letter-text", default="")
+    parser.add_argument("--child-name", default="")
     args = parser.parse_args()
 
     render_synced(
@@ -270,6 +407,8 @@ def main():
         bgm_wav=Path(args.bgm_wav),
         overlay_png=Path(args.overlay_png),
         output_mp4=Path(args.output_mp4),
+        letter_text=args.letter_text,
+        child_name=args.child_name,
     )
 
 
