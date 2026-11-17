@@ -67,10 +67,14 @@ def compute_voice_envelope(wav_path: Path, fps: float) -> tuple[np.ndarray, floa
     return smoothed, total_duration
 
 
-def load_base_frames(video_path: Path) -> np.ndarray:
-    raw = subprocess.check_output(
+def open_base_frame_stream(video_path: Path) -> subprocess.Popen:
+    return subprocess.Popen(
         [
             FFMPEG_BIN,
+            "-threads",
+            "2",
+            "-stream_loop",
+            "-1",
             "-i",
             str(video_path),
             "-f",
@@ -80,11 +84,10 @@ def load_base_frames(video_path: Path) -> np.ndarray:
             "-v",
             "error",
             "-",
-        ]
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
     )
-    frame_bytes = WIDTH * HEIGHT * 3
-    n_frames = len(raw) // frame_bytes
-    return np.frombuffer(raw[: n_frames * frame_bytes], dtype=np.uint8).reshape((n_frames, HEIGHT, WIDTH, 3))
 
 
 def prepare_overlay_bands(overlay_png: Path):
@@ -124,9 +127,7 @@ def render_synced(
 
     env, total_duration = compute_voice_envelope(voice_wav, fps)
     n_frames_out = len(env)
-
-    base_frames = load_base_frames(base_video)
-    n_base = len(base_frames)
+    frame_bytes = WIDTH * HEIGHT * 3
     overlay_bands = prepare_overlay_bands(overlay_png)
 
     # Precalcular rejilla local para la subregión del bigote/barba (250x190)
@@ -149,6 +150,11 @@ def render_synced(
     cmd = [
         FFMPEG_BIN,
         "-y",
+        "-v",
+        "error",
+        "-nostats",
+        "-threads",
+        "2",
         "-f",
         "rawvideo",
         "-pix_fmt",
@@ -190,38 +196,53 @@ def render_synced(
         str(output_mp4),
     ]
 
+    reader = open_base_frame_stream(base_video)
     proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    assert reader.stdout is not None
     assert proc.stdin is not None
 
-    for k in range(n_frames_out):
-        base_idx = k % n_base
-        frame = base_frames[base_idx].copy()
+    try:
+        for k in range(n_frames_out):
+            raw_frame = reader.stdout.read(frame_bytes)
+            if len(raw_frame) != frame_bytes:
+                raise RuntimeError(
+                    f"Stream de vídeo base terminado antes de tiempo en frame {k}/{n_frames_out}"
+                )
+            frame = np.frombuffer(raw_frame, dtype=np.uint8).reshape((HEIGHT, WIDTH, 3)).copy()
 
-        e = float(env[k])
-        if e > 0.01:
-            dx, dy = tracks[base_idx % len(tracks)]
-            x0 = max(0, min(WIDTH - sub_w, int(round(520 + dx))))
-            y0 = max(0, min(HEIGHT - sub_h, int(round(200 + dy))))
+            e = float(env[k])
+            if e > 0.01:
+                dx, dy = tracks[k % len(tracks)]
+                x0 = max(0, min(WIDTH - sub_w, int(round(520 + dx))))
+                y0 = max(0, min(HEIGHT - sub_h, int(round(200 + dy))))
 
-            # Desplazamiento vertical silábico en el bigote/barba inferior
-            amp = e * (0.7 + 0.3 * math.sin(k * 1.6)) * 6.8
-            disp_y = falloff * amp
+                # Desplazamiento vertical silábico en el bigote/barba inferior
+                amp = e * (0.7 + 0.3 * math.sin(k * 1.6)) * 6.8
+                disp_y = falloff * amp
 
-            src_y = np.clip(sy_grid - disp_y, 0.0, sub_h - 1.001)
-            yi = src_y.astype(np.int32)
-            fy = (src_y - yi)[..., None]
-            xi = sx_grid.astype(np.int32)
+                src_y = np.clip(sy_grid - disp_y, 0.0, sub_h - 1.001)
+                yi = src_y.astype(np.int32)
+                fy = (src_y - yi)[..., None]
+                xi = sx_grid.astype(np.int32)
 
-            patch_f = frame[y0 : y0 + sub_h, x0 : x0 + sub_w].astype(np.float32)
-            warped = patch_f[yi, xi] * (1.0 - fy) + patch_f[yi + 1, xi] * fy
-            frame[y0 : y0 + sub_h, x0 : x0 + sub_w] = np.clip(warped, 0, 255).astype(np.uint8)
+                patch_f = frame[y0 : y0 + sub_h, x0 : x0 + sub_w].astype(np.float32)
+                warped = patch_f[yi, xi] * (1.0 - fy) + patch_f[yi + 1, xi] * fy
+                frame[y0 : y0 + sub_h, x0 : x0 + sub_w] = np.clip(warped, 0, 255).astype(np.uint8)
 
-        # Aplicar solo las bandas del overlay donde hay gráficos/texto
-        for by0, by1, rgb_pre, one_m_a in overlay_bands:
-            band = frame[by0:by1].astype(np.float32)
-            frame[by0:by1] = np.clip(band * one_m_a + rgb_pre, 0, 255).astype(np.uint8)
+            # Aplicar solo las bandas del overlay donde hay gráficos/texto
+            for by0, by1, rgb_pre, one_m_a in overlay_bands:
+                band = frame[by0:by1].astype(np.float32)
+                frame[by0:by1] = np.clip(band * one_m_a + rgb_pre, 0, 255).astype(np.uint8)
 
-        proc.stdin.write(frame.tobytes())
+            proc.stdin.write(frame.tobytes())
+    finally:
+        try:
+            reader.stdout.close()
+        except Exception:
+            pass
+        if reader.poll() is None:
+            reader.kill()
+        reader.wait()
 
     proc.stdin.close()
     stderr_out = proc.stderr.read().decode("utf-8", errors="replace")
