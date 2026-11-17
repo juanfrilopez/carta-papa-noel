@@ -21,6 +21,11 @@ fs.mkdirSync(GENERATED_DIR, { recursive: true });
 let stripeConfig = {
   secretKey: (process.env.STRIPE_SECRET_KEY || '').trim(),
   promoCode: (process.env.PROMO_CODE || 'JULIETA27').trim(),
+  resendApiKey: (process.env.RESEND_API_KEY || '').trim(),
+  resendFrom: (
+    process.env.RESEND_FROM_EMAIL || 'Papá Noel • Polo Norte <onboarding@resend.dev>'
+  ).trim(),
+  supportEmail: (process.env.SUPPORT_EMAIL || 'juanfri1995@gmail.com').trim(),
 };
 try {
   if (fs.existsSync(STRIPE_CONFIG_FILE)) {
@@ -30,6 +35,15 @@ try {
     }
     if (typeof saved.promoCode === 'string' && saved.promoCode.trim()) {
       stripeConfig.promoCode = saved.promoCode.trim();
+    }
+    if (typeof saved.resendApiKey === 'string' && saved.resendApiKey.trim()) {
+      stripeConfig.resendApiKey = saved.resendApiKey.trim();
+    }
+    if (typeof saved.resendFrom === 'string' && saved.resendFrom.trim()) {
+      stripeConfig.resendFrom = saved.resendFrom.trim();
+    }
+    if (typeof saved.supportEmail === 'string' && saved.supportEmail.trim()) {
+      stripeConfig.supportEmail = saved.supportEmail.trim();
     }
   }
 } catch (err) {
@@ -42,6 +56,22 @@ function getStripeSecretKey() {
 
 function getPromoCode() {
   return (stripeConfig.promoCode || process.env.PROMO_CODE || 'JULIETA27').trim();
+}
+
+function getResendApiKey() {
+  return (stripeConfig.resendApiKey || process.env.RESEND_API_KEY || '').trim();
+}
+
+function getResendFrom() {
+  return (
+    stripeConfig.resendFrom ||
+    process.env.RESEND_FROM_EMAIL ||
+    'Papá Noel • Polo Norte <onboarding@resend.dev>'
+  ).trim();
+}
+
+function getSupportEmail() {
+  return (stripeConfig.supportEmail || process.env.SUPPORT_EMAIL || 'juanfri1995@gmail.com').trim();
 }
 
 function maskKey(k) {
@@ -58,6 +88,9 @@ function saveStripeConfig() {
         {
           secretKey: stripeConfig.secretKey,
           promoCode: stripeConfig.promoCode,
+          resendApiKey: stripeConfig.resendApiKey,
+          resendFrom: stripeConfig.resendFrom,
+          supportEmail: stripeConfig.supportEmail,
         },
         null,
         2
@@ -237,17 +270,141 @@ function stripeRequest(method, apiPath, formParams = null) {
   });
 }
 
+function resendRequest(payload) {
+  const apiKey = getResendApiKey();
+  if (!apiKey) {
+    return Promise.reject(new Error('RESEND_API_KEY no configurada'));
+  }
+
+  const body = JSON.stringify(payload);
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: 'api.resend.com',
+        path: '/emails',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        timeout: 15000,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          const raw = Buffer.concat(chunks).toString('utf8');
+          try {
+            const parsed = JSON.parse(raw);
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              resolve(parsed);
+            } else {
+              reject(new Error(parsed.message || parsed.error || `Resend HTTP ${res.statusCode}`));
+            }
+          } catch {
+            reject(new Error(`Respuesta inválida de Resend: ${raw.slice(0, 120)}`));
+          }
+        });
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('Timeout conectando con Resend')));
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function sendOrderEmail(order, origin) {
+  const recipient = String(order.parentEmail || '').trim();
+  if (!recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+    throw new Error('Correo electrónico no válido.');
+  }
+
+  const shareUrl = `${origin}/?orderId=${encodeURIComponent(order.orderId)}`;
+  const downloadUrl = `${origin}/api/download/${encodeURIComponent(order.orderId)}`;
+  const safeChild = escapeHtmlAttr(order.childName);
+  const supportEmail = getSupportEmail();
+  const hasDiploma = order.tier === 'pack';
+
+  const html = `
+<!DOCTYPE html>
+<html lang="es">
+<body style="margin:0;padding:24px;background:#08111c;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#f6efe6;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;margin:0 auto;background:#101f31;border:1px solid #d4a64a;border-radius:18px;overflow:hidden;">
+    <tr>
+      <td style="padding:28px 28px 18px;text-align:center;background:linear-gradient(135deg,#4f0c14,#1b2b3e);border-bottom:1px solid rgba(230,184,92,0.35);">
+        <p style="margin:0 0 8px;font-size:12px;letter-spacing:1.6px;color:#f7dfa0;font-weight:700;text-transform:uppercase;">Taller Oficial de Rovaniemi • Laponia</p>
+        <h1 style="margin:0;font-size:24px;color:#ffffff;font-family:Georgia,serif;">🎅 ¡El vídeo de Papá Noel para ${safeChild} está listo!</h1>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:26px 28px;font-size:15px;line-height:1.6;color:#dbe6f2;">
+        <p style="margin:0 0 14px;">¡Hola! Te enviamos el enlace permanente al mensaje personalizado que Papá Noel ha grabado para <strong>${safeChild}</strong>.</p>
+        <p style="margin:0 0 22px;">Puedes verlo a pantalla completa, descargarlo en MP4 y compartirlo con los abuelos y toda la familia cuando quieras:</p>
+        <div style="text-align:center;margin:22px 0;">
+          <a href="${escapeHtmlAttr(shareUrl)}" style="display:inline-block;padding:14px 26px;background:linear-gradient(180deg,#c92a35,#8e141d);color:#ffffff;text-decoration:none;font-weight:800;border-radius:12px;border:1px solid #f7dfa0;font-size:16px;">🎬 Ver y Descargar el Vídeo de ${safeChild}</a>
+        </div>
+        <p style="margin:18px 0 8px;font-size:13.5px;color:#b8cbe0;">
+          ⬇️ <a href="${escapeHtmlAttr(downloadUrl)}" style="color:#f7dfa0;">Descarga directa del vídeo MP4</a>
+          ${hasDiploma ? ' • 📜 Tu pedido incluye además el <strong>Diploma Oficial imprimible</strong> dentro del enlace.' : ''}
+        </p>
+        <p style="margin:14px 0 0;font-size:12.5px;color:#8fa6bd;word-break:break-all;">
+          Enlace directo: <a href="${escapeHtmlAttr(shareUrl)}" style="color:#f7dfa0;">${escapeHtmlAttr(shareUrl)}</a>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:16px 28px;background:#0a1522;border-top:1px solid rgba(255,255,255,0.08);font-size:12px;color:#8fa6bd;text-align:center;">
+        ¿Necesitas ayuda con tu pedido <strong>${escapeHtmlAttr(order.orderId)}</strong>? Escríbenos a <a href="mailto:${escapeHtmlAttr(supportEmail)}" style="color:#f7dfa0;">${escapeHtmlAttr(supportEmail)}</a>.
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim();
+
+  const text = [
+    `¡El vídeo de Papá Noel para ${order.childName} está listo!`,
+    '',
+    `Ver vídeo completo (y diploma si está incluido): ${shareUrl}`,
+    `Descarga directa MP4: ${downloadUrl}`,
+    '',
+    `Si necesitas ayuda con tu pedido (${order.orderId}), escribe a ${supportEmail}.`,
+  ].join('\n');
+
+  const result = await resendRequest({
+    from: getResendFrom(),
+    to: [recipient],
+    reply_to: supportEmail,
+    subject: `🎅 Vídeo de Papá Noel para ${order.childName} listo para ver y descargar`,
+    html,
+    text,
+  });
+
+  order.emailSent = true;
+  order.emailSentTo = recipient;
+  order.emailSentAt = new Date().toISOString();
+  order.resendEmailId = result?.id || null;
+  saveOrders();
+  return result;
+}
+
 function getStatsPayload(includeAdminSecrets = false) {
   const cacheStats = voiceEngine.getCacheStats();
   const orderList = Object.values(orders);
   const sk = getStripeSecretKey();
   const promo = getPromoCode();
+  const rk = getResendApiKey();
   return {
     ...cacheStats,
     stripeConfigured: Boolean(sk),
     stripeMode: sk.startsWith('sk_live_') ? 'live' : sk.startsWith('sk_test_') ? 'test' : 'demo',
     stripeKeyMasked: maskKey(sk),
     promoCodeConfigured: Boolean(promo),
+    resendConfigured: Boolean(rk),
+    resendKeyMasked: maskKey(rk),
+    resendFrom: getResendFrom(),
+    supportEmail: getSupportEmail(),
     ...(includeAdminSecrets ? { promoCode: promo } : {}),
     totalOrders: orderList.length,
     unlockedOrders: orderList.filter((o) => o.paid).length,
@@ -500,6 +657,13 @@ const server = http.createServer(async (req, res) => {
         order.tier = 'pack';
         order.unlockedWithPromo = true;
         saveOrders();
+        if (order.parentEmail && getResendApiKey() && !order.emailSent) {
+          try {
+            await sendOrderEmail(order, getRequestOrigin(req));
+          } catch (mailErr) {
+            console.warn('[email] Error enviando correo tras promo:', mailErr.message);
+          }
+        }
         return sendJson(res, 200, { ok: true, order });
       }
 
@@ -521,6 +685,12 @@ const server = http.createServer(async (req, res) => {
         }
         verifiedTier = session.metadata?.tier === 'pack' ? 'pack' : verifiedTier;
         order.stripeSessionId = session.id;
+        const stripeEmail = String(
+          session.customer_details?.email || session.customer_email || ''
+        ).trim();
+        if (stripeEmail && !order.parentEmail) {
+          order.parentEmail = stripeEmail;
+        }
       }
 
       order.paid = true;
@@ -528,8 +698,61 @@ const server = http.createServer(async (req, res) => {
       order.tier = verifiedTier;
       saveOrders();
 
+      if (order.parentEmail && getResendApiKey() && !order.emailSent) {
+        try {
+          await sendOrderEmail(order, getRequestOrigin(req));
+        } catch (mailErr) {
+          console.warn('[email] Error enviando correo tras pago:', mailErr.message);
+        }
+      }
+
       return sendJson(res, 200, {
         ok: true,
+        order,
+      });
+    }
+
+    if (req.method === 'POST' && pathname === '/api/send-order-email') {
+      const body = await readJsonBody(req);
+      const order = orders[body.orderId];
+      if (!order) {
+        return sendJson(res, 404, { error: 'Pedido no encontrado.' });
+      }
+      if (!order.paid) {
+        return sendJson(res, 402, {
+          error: 'Desbloquea primero el vídeo completo para recibir el enlace.',
+        });
+      }
+      const email = String(body.email || order.parentEmail || '').trim().slice(0, 160);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return sendJson(res, 400, { error: 'Introduce un correo electrónico válido.' });
+      }
+
+      order.parentEmail = email;
+      saveOrders();
+
+      const origin = getRequestOrigin(req);
+      const shareUrl = `${origin}/?orderId=${encodeURIComponent(order.orderId)}`;
+      const downloadUrl = `${origin}/api/download/${encodeURIComponent(order.orderId)}`;
+
+      if (getResendApiKey()) {
+        await sendOrderEmail(order, origin);
+        return sendJson(res, 200, {
+          ok: true,
+          mode: 'resend',
+          email,
+          shareUrl,
+          downloadUrl,
+          order,
+        });
+      }
+
+      return sendJson(res, 200, {
+        ok: true,
+        mode: 'mailto',
+        email,
+        shareUrl,
+        downloadUrl,
         order,
       });
     }
@@ -612,9 +835,30 @@ const server = http.createServer(async (req, res) => {
         updated = true;
       }
 
+      if (typeof body.resendApiKey === 'string' && body.resendApiKey.trim()) {
+        const rkey = body.resendApiKey.trim();
+        if (!rkey.startsWith('re_')) {
+          return sendJson(res, 400, {
+            error: 'La API Key de Resend debe empezar por re_',
+          });
+        }
+        stripeConfig.resendApiKey = rkey;
+        updated = true;
+      }
+
+      if (typeof body.resendFrom === 'string' && body.resendFrom.trim()) {
+        stripeConfig.resendFrom = body.resendFrom.trim().slice(0, 140);
+        updated = true;
+      }
+
+      if (typeof body.supportEmail === 'string' && body.supportEmail.trim()) {
+        stripeConfig.supportEmail = body.supportEmail.trim().slice(0, 120);
+        updated = true;
+      }
+
       if (!updated) {
         return sendJson(res, 400, {
-          error: 'Introduce una clave de Stripe o un código de invitación válido.',
+          error: 'Introduce una clave válida (Stripe, Resend o código de invitación).',
         });
       }
 

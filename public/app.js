@@ -67,6 +67,9 @@
   const whatsappShareBtn = document.getElementById('whatsappShareBtn');
   const printDiplomaBtn = document.getElementById('printDiplomaBtn');
   const newLetterBtn = document.getElementById('newLetterBtn');
+  const unlockedEmailInput = document.getElementById('unlockedEmailInput');
+  const sendOrderEmailBtn = document.getElementById('sendOrderEmailBtn');
+  const unlockedEmailStatus = document.getElementById('unlockedEmailStatus');
 
   const metricCost = document.getElementById('metricCost');
   const metricCache = document.getElementById('metricCache');
@@ -98,6 +101,20 @@
   const savePromoCodeBtn = document.getElementById('savePromoCodeBtn');
   const clearStripeConfigBtn = document.getElementById('clearStripeConfigBtn');
   const stripeConfigStatus = document.getElementById('stripeConfigStatus');
+  const resendApiKeyInput = document.getElementById('resendApiKeyInput');
+  const resendFromInput = document.getElementById('resendFromInput');
+  const saveResendConfigBtn = document.getElementById('saveResendConfigBtn');
+  const resendConfigStatus = document.getElementById('resendConfigStatus');
+
+  // Legal modal
+  const legalModal = document.getElementById('legalModal');
+  const closeLegalBtn = document.getElementById('closeLegalBtn');
+  const legalSupportEmailLink = document.getElementById('legalSupportEmailLink');
+  const legalPanels = {
+    privacidad: document.getElementById('legalPanelPrivacidad'),
+    condiciones: document.getElementById('legalPanelCondiciones'),
+    contacto: document.getElementById('legalPanelContacto'),
+  };
 
   // Diploma modal
   const diplomaModal = document.getElementById('diplomaModal');
@@ -376,10 +393,25 @@
     fullVideo.src = `${order.videoUrl}?unlocked=${Date.now()}`;
     downloadVideoBtn.href = order.downloadUrl || `/api/download/${order.orderId}`;
 
+    const orderLink = `${window.location.origin}/?orderId=${encodeURIComponent(order.orderId)}`;
     const shareText = encodeURIComponent(
       `¡Mira el vídeo personalizado que Papá Noel le ha enviado a ${order.childName} desde el Polo Norte!`
     );
-    whatsappShareBtn.href = `https://wa.me/?text=${shareText}%20${encodeURIComponent(window.location.href)}`;
+    whatsappShareBtn.href = `https://wa.me/?text=${shareText}%20${encodeURIComponent(orderLink)}`;
+
+    if (unlockedEmailInput) {
+      unlockedEmailInput.value = order.parentEmail || '';
+    }
+    if (unlockedEmailStatus) {
+      if (order.emailSent && order.emailSentTo) {
+        unlockedEmailStatus.textContent = `✅ Enlace enviado automáticamente a ${order.emailSentTo}`;
+        unlockedEmailStatus.classList.remove('hidden', 'is-error');
+      } else {
+        unlockedEmailStatus.textContent = '';
+        unlockedEmailStatus.classList.add('hidden');
+        unlockedEmailStatus.classList.remove('is-error');
+      }
+    }
 
     metricCost.textContent = `${Number(order.estimatedCostEur || 0).toFixed(2).replace('.', ',')} €`;
     metricCache.textContent = order.nameCacheHit
@@ -641,7 +673,23 @@
       } else {
         flags.push(data.stripeConfigured ? 'Stripe ✅' : 'Pago Demo');
       }
+      if (data.resendConfigured) {
+        flags.push('Email Resend ✅');
+      }
       statIntegrations.textContent = flags.join(' • ');
+
+      if (resendApiKeyInput) {
+        resendApiKeyInput.placeholder = data.resendKeyMasked
+          ? `Actual: ${data.resendKeyMasked} (pegar nueva clave para cambiar)`
+          : 're_...';
+      }
+      if (resendFromInput && data.resendFrom && !resendFromInput.value) {
+        resendFromInput.value = data.resendFrom;
+      }
+      if (legalSupportEmailLink && data.supportEmail) {
+        legalSupportEmailLink.href = `mailto:${data.supportEmail}`;
+        legalSupportEmailLink.textContent = data.supportEmail;
+      }
 
       if (stripeSecretKeyInput) {
         stripeSecretKeyInput.placeholder = data.stripeKeyMasked
@@ -807,6 +855,133 @@
       updateStripeConfig({ clear: true }, 'Volviendo a modo demo...');
     });
   }
+
+  if (saveResendConfigBtn) {
+    saveResendConfigBtn.addEventListener('click', async () => {
+      const resendApiKey = (resendApiKeyInput?.value || '').trim();
+      const resendFrom = (resendFromInput?.value || '').trim();
+      if (!resendApiKey && !resendFrom) {
+        if (resendConfigStatus) resendConfigStatus.textContent = '❌ Pega tu RESEND_API_KEY (re_...) o remitente';
+        return;
+      }
+      saveResendConfigBtn.disabled = true;
+      if (resendConfigStatus) resendConfigStatus.textContent = 'Guardando configuración de correo...';
+      try {
+        const res = await fetch('/api/stripe-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(resendApiKey ? { resendApiKey } : {}),
+            ...(resendFrom ? { resendFrom } : {}),
+          }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Error guardando Resend');
+        if (resendApiKeyInput) resendApiKeyInput.value = '';
+        if (resendConfigStatus) resendConfigStatus.textContent = '✅ Resend configurado correctamente';
+        await loadCreatorStats();
+      } catch (err) {
+        if (resendConfigStatus) resendConfigStatus.textContent = `❌ ${err.message}`;
+      } finally {
+        saveResendConfigBtn.disabled = false;
+      }
+    });
+  }
+
+  // Envío manual / reenvío del enlace al correo en vídeo desbloqueado
+  async function handleSendOrderEmail() {
+    if (!state.currentOrder || !unlockedEmailInput || !sendOrderEmailBtn || !unlockedEmailStatus) return;
+    const email = unlockedEmailInput.value.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      unlockedEmailStatus.textContent = '❌ Escribe un correo electrónico válido.';
+      unlockedEmailStatus.classList.remove('hidden');
+      unlockedEmailStatus.classList.add('is-error');
+      unlockedEmailInput.focus();
+      return;
+    }
+
+    sendOrderEmailBtn.disabled = true;
+    const origLabel = sendOrderEmailBtn.textContent;
+    sendOrderEmailBtn.textContent = 'Enviando...';
+    unlockedEmailStatus.classList.add('hidden');
+    unlockedEmailStatus.classList.remove('is-error');
+
+    try {
+      const res = await fetch('/api/send-order-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: state.currentOrder.orderId,
+          email,
+        }),
+      }).then((r) => r.json());
+
+      if (!res.ok) throw new Error(res.error || 'No se pudo enviar el correo.');
+      state.currentOrder = res.order || state.currentOrder;
+
+      if (res.mode === 'resend') {
+        unlockedEmailStatus.textContent = `✅ ¡Enviado! Revisa tu correo (${res.email}) o la carpeta de spam.`;
+      } else {
+        await navigator.clipboard?.writeText(res.shareUrl).catch(() => {});
+        unlockedEmailStatus.textContent = `✅ Correo guardado y enlace copiado: ${res.shareUrl}`;
+        const mailSubject = encodeURIComponent(
+          `🎅 Vídeo de Papá Noel para ${state.currentOrder.childName}`
+        );
+        const mailBody = encodeURIComponent(
+          `Aquí tienes el enlace para ver y descargar el vídeo completo de Papá Noel para ${state.currentOrder.childName}:\n\n${res.shareUrl}\n\nDescarga directa MP4:\n${res.downloadUrl}`
+        );
+        window.location.href = `mailto:${encodeURIComponent(email)}?subject=${mailSubject}&body=${mailBody}`;
+      }
+      unlockedEmailStatus.classList.remove('hidden');
+    } catch (err) {
+      unlockedEmailStatus.textContent = `❌ ${err.message}`;
+      unlockedEmailStatus.classList.remove('hidden');
+      unlockedEmailStatus.classList.add('is-error');
+    } finally {
+      sendOrderEmailBtn.disabled = false;
+      sendOrderEmailBtn.textContent = origLabel;
+    }
+  }
+
+  sendOrderEmailBtn?.addEventListener('click', handleSendOrderEmail);
+  unlockedEmailInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSendOrderEmail();
+    }
+  });
+
+  // Modal Legal (Privacidad, Condiciones y Contacto)
+  function switchLegalTab(tabKey) {
+    const key = legalPanels[tabKey] ? tabKey : 'privacidad';
+    document.querySelectorAll('.legal-tab-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.legalPanel === key);
+    });
+    Object.entries(legalPanels).forEach(([k, panel]) => {
+      if (panel) panel.classList.toggle('hidden', k !== key);
+    });
+  }
+
+  function openLegalModal(tabKey = 'privacidad') {
+    if (!legalModal) return;
+    switchLegalTab(tabKey);
+    legalModal.classList.remove('hidden');
+  }
+
+  document.querySelectorAll('[data-legal-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => openLegalModal(btn.dataset.legalTab));
+  });
+  document.querySelectorAll('.legal-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => switchLegalTab(btn.dataset.legalPanel));
+  });
+  closeLegalBtn?.addEventListener('click', () => legalModal?.classList.add('hidden'));
+  legalModal?.addEventListener('click', (e) => {
+    if (e.target === legalModal) legalModal.classList.add('hidden');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && legalModal && !legalModal.classList.contains('hidden')) {
+      legalModal.classList.add('hidden');
+    }
+  });
 
   copyPromptBtn.addEventListener('click', () => {
     navigator.clipboard?.writeText(klingPromptBox.textContent).then(() => {

@@ -386,7 +386,7 @@
           </div>
 
           <div class="field">
-            <label for="parentEmail">Correo de mamá o papá (opcional, para el aviso de los elfos)</label>
+            <label for="parentEmail">Correo de mamá o papá (opcional, para recibir el enlace del vídeo)</label>
             <input
               id="parentEmail"
               name="parentEmail"
@@ -481,10 +481,6 @@
             </details>
           </div>
         </section>
-
-        <footer class="site-footer">
-          <p>🎅 Taller Oficial de Papá Noel • Rovaniemi, Laponia • Hecho con magia para familias</p>
-        </footer>
       </div>
     </section>
 
@@ -650,6 +646,29 @@
           </button>
         </div>
 
+        <div class="email-delivery-card" id="emailDeliveryCard">
+          <div class="email-delivery-header">
+            <span class="email-delivery-icon" aria-hidden="true">✉️</span>
+            <div>
+              <strong>¿Quieres guardar el enlace en tu correo por si cierras el navegador?</strong>
+              <p>Te enviamos el acceso directo para volver a ver o descargar el vídeo en cualquier momento.</p>
+            </div>
+          </div>
+          <div class="email-delivery-form">
+            <input
+              id="unlockedEmailInput"
+              type="email"
+              maxlength="160"
+              placeholder="tu-correo@ejemplo.com"
+              autocomplete="email"
+            />
+            <button id="sendOrderEmailBtn" type="button" class="btn-secondary">
+              Enviar enlace al correo
+            </button>
+          </div>
+          <p id="unlockedEmailStatus" class="email-delivery-status hidden"></p>
+        </div>
+
         <div class="family-success-card" id="familySuccessCard">
           <span>🎄</span>
           <div>
@@ -681,6 +700,18 @@
         </div>
       </div>
     </section>
+
+    <footer class="site-footer">
+      <p>🎅 Taller Oficial de Papá Noel • Rovaniemi, Laponia • Hecho con magia para familias</p>
+      <p class="footer-trust">🔒 Pago único seguro con Stripe • Privacidad infantil garantizada</p>
+      <div class="footer-links">
+        <button type="button" class="footer-link-btn" data-legal-tab="privacidad">Política de Privacidad</button>
+        <span aria-hidden="true">•</span>
+        <button type="button" class="footer-link-btn" data-legal-tab="condiciones">Condiciones de Compra</button>
+        <span aria-hidden="true">•</span>
+        <button type="button" class="footer-link-btn" data-legal-tab="contacto">Contacto y Soporte</button>
+      </div>
+    </footer>
   </main>
 
   <!-- MODAL PANEL DEL CREADOR (DE 0 A 100) -->
@@ -812,12 +843,36 @@
         </div>
 
         <div class="creator-section">
-          <h3>5. Variables de Entorno al Arrancar</h3>
+          <h3>5. Envío Automático por Email (Resend API)</h3>
+          <p>
+            Pega tu clave gratuita de <a href="https://resend.com" target="_blank" rel="noopener" style="color:#f7dfa0;">Resend</a> (<code>re_...</code>) para enviar automáticamente el enlace del vídeo al correo de los padres tras el pago o código de invitación:
+          </p>
+          <div class="tts-config-grid">
+            <div class="tts-field">
+              <label for="resendApiKeyInput">RESEND_API_KEY</label>
+              <input id="resendApiKeyInput" type="password" placeholder="re_..." />
+            </div>
+            <div class="tts-field">
+              <label for="resendFromInput">Remitente (RESEND_FROM_EMAIL)</label>
+              <input id="resendFromInput" type="text" placeholder="Papá Noel <onboarding@resend.dev>" />
+            </div>
+          </div>
+          <div class="creator-actions-inline" style="margin-top:10px;">
+            <button id="saveResendConfigBtn" type="button" class="btn-secondary">
+              ✉️ Guardar Email Resend
+            </button>
+            <span id="resendConfigStatus" class="status-inline"></span>
+          </div>
+        </div>
+
+        <div class="creator-section">
+          <h3>6. Variables de Entorno al Arrancar</h3>
           <p>El servidor también lee automáticamente tus claves desde variables de entorno al arrancar:</p>
           <pre class="prompt-box">GEMINI_API_KEY="tu_api_key_de_google_ai_studio" \
 GEMINI_TTS_MODEL="gemini-3.8-flash-tts" \
 GEMINI_TTS_VOICE="Charon" \
 STRIPE_SECRET_KEY="sk_live_o_sk_test_..." \
+RESEND_API_KEY="re_..." \
 node server.js</pre>
         </div>
       </div>
@@ -854,6 +909,67 @@ node server.js</pre>
       </div>
       <div class="diploma-actions">
         <button id="printNowBtn" type="button" class="btn-magic">🖨️ Imprimir / Guardar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL LEGAL: PRIVACIDAD, CONDICIONES Y CONTACTO -->
+  <div id="legalModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">
+    <div class="modal-content legal-modal">
+      <div class="modal-header">
+        <div>
+          <h2 id="legalModalTitle">📜 Información Legal y Privacidad</h2>
+          <p>Transparencia y cuidado total para las familias que usan Carta Mágica de Papá Noel.</p>
+        </div>
+        <button id="closeLegalBtn" type="button" class="close-btn" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="legal-tabs" role="tablist">
+        <button type="button" class="legal-tab-btn active" data-legal-panel="privacidad">🔒 Privacidad y Menores</button>
+        <button type="button" class="legal-tab-btn" data-legal-panel="condiciones">🧾 Condiciones de Compra</button>
+        <button type="button" class="legal-tab-btn" data-legal-panel="contacto">✉️ Contacto y Soporte</button>
+      </div>
+
+      <div class="legal-body">
+        <section id="legalPanelPrivacidad" class="legal-section">
+          <h3>Política de Privacidad y Protección de Menores (RGPD)</h3>
+          <p>
+            Esta aplicación está pensada para ser utilizada por madres, padres o tutores legales junto a sus peques.
+            Los datos introducidos (primer nombre del menor, edad orientativa, texto de la carta y, opcionalmente, el
+            correo electrónico del adulto) se utilizan <strong>única y exclusivamente</strong> para generar el vídeo personalizado
+            de Papá Noel y enviar el enlace de acceso al familiar responsable.
+          </p>
+          <ul>
+            <li><strong>Cero publicidad y cero venta de datos:</strong> No compartimos ni cedemos información personal a terceros con fines comerciales ni mostramos anuncios.</li>
+            <li><strong>Pagos cifrados en Stripe:</strong> Los datos bancarios o de tarjeta se introducen directamente en la pasarela segura de Stripe (certificación PCI-DSS); nunca almacenamos números de tarjeta en nuestros servidores.</li>
+            <li><strong>Derecho de borrado inmediato:</strong> Si deseas eliminar un vídeo generado o cualquier correo asociado, puedes solicitarlo en cualquier momento escribiendo al correo de soporte.</li>
+          </ul>
+        </section>
+
+        <section id="legalPanelCondiciones" class="legal-section hidden">
+          <h3>Condiciones de Compra y Entrega Digital</h3>
+          <p>
+            Antes de realizar ningún pago, la web ofrece de forma gratuita la composición de la carta y una vista previa en vídeo
+            para comprobar que el nombre y la pronunciación son correctos.
+          </p>
+          <ul>
+            <li><strong>Pago único sin suscripciones:</strong> <strong>1,00 €</strong> por el Vídeo Mágico Completo o <strong>1,99 €</strong> por el pack con Diploma Oficial del Polo Norte imprimible. No existen cuotas recurrentes ni renovaciones automáticas.</li>
+            <li><strong>Entrega inmediata:</strong> Nada más completarse el pago o canjear un código válido, el vídeo queda desbloqueado al instante en pantalla para reproducir, compartir y descargar en formato MP4.</li>
+            <li><strong>Garantía de satisfacción:</strong> Si ocurre cualquier fallo técnico al reproducir o descargar tu vídeo, escríbenos indicando tu número de pedido y te lo solucionamos o reembolsamos íntegro el importe.</li>
+          </ul>
+        </section>
+
+        <section id="legalPanelContacto" class="legal-section hidden">
+          <h3>Contacto y Atención a Familias</h3>
+          <p>
+            ¿Has cerrado el navegador sin guardar el enlace de tu vídeo, necesitas corregir un nombre o tienes cualquier duda con tu pedido?
+          </p>
+          <div class="legal-contact-box">
+            <strong>Correo directo de soporte:</strong>
+            <a id="legalSupportEmailLink" href="mailto:juanfri1995@gmail.com">juanfri1995@gmail.com</a>
+            <small>Respondemos normalmente en menos de 24 horas (y con prioridad máxima en fechas navideñas).</small>
+          </div>
+        </section>
       </div>
     </div>
   </div>
