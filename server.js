@@ -356,6 +356,7 @@ const server = http.createServer(async (req, res) => {
       }
 
       const age = String(body.age || '').trim().slice(0, 3);
+      const gender = body.gender === 'f' ? 'f' : body.gender === 'm' ? 'm' : undefined;
       const achievement = String(body.achievement || 'cole').trim();
       const behavior = String(body.behavior || 'super_bien').trim();
       const letterText = String(body.letterText || '').trim().slice(0, 800);
@@ -368,6 +369,7 @@ const server = http.createServer(async (req, res) => {
         childName: rawName,
         achievement,
         behavior,
+        gender,
       });
 
       const video = await videoCompositor.composeSantaVideo({
@@ -387,6 +389,7 @@ const server = http.createServer(async (req, res) => {
         orderId,
         childName: speech.displayName,
         nameSlug: speech.nameSlug,
+        gender: speech.gender,
         age,
         achievement: speech.achievementKey,
         achievementLabel: speech.achievementLabel,

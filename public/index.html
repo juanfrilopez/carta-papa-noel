@@ -179,6 +179,40 @@
           </div>
 
           <div class="field">
+            <label>Insignia en el Gran Libro de los Elfos</label>
+            <div class="gender-grid" id="genderGrid">
+              <button type="button" class="gen-btn selected" data-gender="m">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <path d="M7 18.5C7 13 10.2 6.5 14 5.5C17.8 6.5 21 13 21 18.5Z" />
+                    <circle cx="14" cy="4.2" r="1.4" />
+                    <path d="M5.5 18.5H22.5" />
+                    <path d="M10.5 21.5C12 22.8 16 22.8 17.5 21.5" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Pequeño ayudante</strong>
+                  <small>Insignia de niño en el Taller</small>
+                </div>
+              </button>
+              <button type="button" class="gen-btn" data-gender="f">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <path d="M7 18.5C7 13 10.2 6.5 14 5.5C17.8 6.5 21 13 21 18.5Z" />
+                    <path d="M14 2.5L15.1 4.6L17.4 4.9L15.7 6.5L16.1 8.8L14 7.7L11.9 8.8L12.3 6.5L10.6 4.9L12.9 4.6Z" />
+                    <path d="M5.5 18.5H22.5" />
+                    <path d="M10.5 21.5C12 22.8 16 22.8 17.5 21.5" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Pequeña ayudante</strong>
+                  <small>Insignia de niña en el Taller</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
             <label>¿Qué es lo mejor que has hecho este año?</label>
             <div class="achievement-grid" id="achievementGrid">
               <button type="button" class="ach-btn selected" data-value="cole">
@@ -219,7 +253,7 @@
                 </span>
                 <div>
                   <strong>Cuidar a la familia</strong>
-                  <small>Buen hermano / hijo</small>
+                  <small id="achHermanosSub">Buen hermano / hijo</small>
                 </div>
               </button>
               <button type="button" class="ach-btn" data-value="deporte">
@@ -248,7 +282,7 @@
                 </span>
                 <div>
                   <strong>Ser muy valiente</strong>
-                  <small>Un año genial y muy bueno</small>
+                  <small id="achValienteSub">Un año genial y muy bueno</small>
                 </div>
               </button>
             </div>
@@ -277,7 +311,7 @@
                 </span>
                 <div>
                   <strong>¡Súper bien!</strong>
-                  <small>Casi un angelito todo el año</small>
+                  <small id="behSuperBienSub">Casi un angelito todo el año</small>
                 </div>
               </button>
               <button type="button" class="beh-btn" data-behavior="casi_siempre">
@@ -322,7 +356,7 @@
                   </svg>
                 </span>
                 <div>
-                  <strong>Algo terremoto (¡soy sincero!)</strong>
+                  <strong id="behTraviesoTitle">Algo terremoto (¡soy sincero!)</strong>
                   <small>Prometo portarme de diez hasta Navidad</small>
                 </div>
               </button>

@@ -4,6 +4,8 @@
   const state = {
     achievement: 'cole',
     behavior: 'super_bien',
+    gender: 'm',
+    genderTouchedManually: false,
     selectedTier: 'pack',
     currentOrder: null,
     musicDesired: false,
@@ -200,6 +202,63 @@
     frame();
   }
 
+  const achHermanosSub = document.getElementById('achHermanosSub');
+  const achValienteSub = document.getElementById('achValienteSub');
+  const behSuperBienSub = document.getElementById('behSuperBienSub');
+  const behTraviesoTitle = document.getElementById('behTraviesoTitle');
+
+  const FEMALE_NAME_HINTS = new Set([
+    'lucia', 'sofia', 'martina', 'valeria', 'paula', 'julia', 'emma', 'daniela',
+    'carla', 'alba', 'noa', 'chloe', 'olivia', 'claudia', 'carmen', 'maria',
+    'vega', 'alma', 'mia', 'vera', 'sara', 'elena', 'ines', 'aitana', 'lola',
+    'valentina', 'jimena', 'abril', 'triana', 'nora', 'julieta', 'rocio', 'candela',
+    'laia', 'clara', 'adriana', 'blanca', 'marina', 'natalia', 'irene', 'alicia',
+    'ainhoa', 'leire', 'nahia', 'leyre', 'elisa', 'celia', 'helena', 'ariadna',
+    'raquel', 'beatriz', 'isabel', 'ana', 'alejandra', 'angela', 'patricia', 'marta',
+    'nuria', 'miriam', 'belen', 'ruth', 'esther', 'zoe', 'naia', 'cayetana',
+  ]);
+  const MALE_ENDING_A_HINTS = new Set(['luca', 'borja', 'bautista', 'joshua', 'ezra', 'nikita']);
+
+  function inferGenderClient(rawName) {
+    const first = String(rawName || '').trim().split(/\s+/)[0] || '';
+    const norm = first
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z]/g, '');
+    if (!norm) return null;
+    if (MALE_ENDING_A_HINTS.has(norm)) return 'm';
+    if (FEMALE_NAME_HINTS.has(norm) || norm.endsWith('a')) return 'f';
+    return 'm';
+  }
+
+  function setGender(g, manual = false) {
+    state.gender = g === 'f' ? 'f' : 'm';
+    if (manual) state.genderTouchedManually = true;
+    document.querySelectorAll('.gen-btn').forEach((btn) => {
+      btn.classList.toggle('selected', btn.dataset.gender === state.gender);
+    });
+    const isFem = state.gender === 'f';
+    if (achHermanosSub) achHermanosSub.textContent = isFem ? 'Buena hermana / hija' : 'Buen hermano / hijo';
+    if (achValienteSub) achValienteSub.textContent = isFem ? 'Un año genial y muy buena' : 'Un año genial y muy bueno';
+    if (behSuperBienSub) behSuperBienSub.textContent = isFem ? 'Casi un angelito todo el año' : 'Casi un angelito todo el año';
+    if (behTraviesoTitle) {
+      behTraviesoTitle.textContent = isFem ? 'Algo terremoto (¡soy sincera!)' : 'Algo terremoto (¡soy sincero!)';
+    }
+  }
+
+  document.querySelectorAll('.gen-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setGender(btn.dataset.gender, true);
+    });
+  });
+
+  childNameInput?.addEventListener('input', () => {
+    if (state.genderTouchedManually) return;
+    const guessed = inferGenderClient(childNameInput.value);
+    if (guessed) setGender(guessed, false);
+  });
+
   // Selector de logros
   document.querySelectorAll('.ach-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -331,7 +390,8 @@
 
     diplomaName.textContent = order.childName;
     const behText = order.behaviorLabel ? ` (${order.behaviorLabel})` : '';
-    diplomaReason.textContent = `ha destacado este año por su "${order.achievementLabel}"${behText} y figura oficialmente en la Lista de Niños Buenos de esta Navidad.`;
+    const listLabel = order.gender === 'f' ? 'Lista de Niñas Buenas' : 'Lista de Niños Buenos';
+    diplomaReason.textContent = `ha destacado este año por su "${order.achievementLabel}"${behText} y figura oficialmente en la ${listLabel} de esta Navidad.`;
     diplomaDate.textContent = new Date().toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
@@ -400,6 +460,7 @@
         body: JSON.stringify({
           childName,
           age: ageInput.value.trim(),
+          gender: state.gender,
           achievement: state.achievement,
           behavior: state.behavior,
           letterText: letterTextInput.value.trim(),
@@ -799,6 +860,10 @@
     }
   }
 
+  const initialGuessedGender = inferGenderClient(childNameInput?.value || '');
+  if (initialGuessedGender) {
+    setGender(initialGuessedGender, false);
+  }
   initCountdown();
   initSnow();
   checkStripeReturn();

@@ -452,6 +452,52 @@ body {
   box-shadow: 0 4px 12px rgba(159, 27, 36, 0.14);
 }
 
+.gender-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gen-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px solid #dcc497;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.gen-btn span {
+  font-size: 20px;
+}
+
+.gen-btn strong {
+  display: block;
+  font-size: 13px;
+}
+
+.gen-btn small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.gen-btn:hover {
+  border-color: var(--crimson);
+  background: #fff;
+}
+
+.gen-btn.selected {
+  background: linear-gradient(135deg, #fff5dc, #fde8bc);
+  border-color: var(--crimson);
+  box-shadow: 0 4px 12px rgba(159, 27, 36, 0.14);
+}
+
 .doodle-wrap {
   width: 32px;
   height: 32px;
@@ -478,8 +524,10 @@ body {
 
 .ach-btn:hover .doodle-wrap,
 .beh-btn:hover .doodle-wrap,
+.gen-btn:hover .doodle-wrap,
 .ach-btn.selected .doodle-wrap,
-.beh-btn.selected .doodle-wrap {
+.beh-btn.selected .doodle-wrap,
+.gen-btn.selected .doodle-wrap {
   color: var(--crimson);
   border-color: var(--crimson);
   background: rgba(159, 27, 36, 0.08);
@@ -1616,7 +1664,8 @@ body {
 @media (max-width: 600px) {
   .form-row,
   .achievement-grid,
-  .behavior-grid {
+  .behavior-grid,
+  .gender-grid {
     grid-template-columns: 1fr;
   }
   .parchment-card {
