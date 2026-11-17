@@ -400,7 +400,7 @@ const server = http.createServer(async (req, res) => {
       const sk = getStripeSecretKey();
 
       if (sk) {
-        const session = await stripeRequest('POST', '/v1/checkout/sessions', {
+        const baseSessionParams = {
           mode: 'payment',
           client_reference_id: order.orderId,
           'metadata[orderId]': order.orderId,
@@ -415,7 +415,20 @@ const server = http.createServer(async (req, res) => {
           success_url: `${origin}/?orderId=${encodeURIComponent(order.orderId)}&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${origin}/?orderId=${encodeURIComponent(order.orderId)}&canceled=1`,
           ...(order.parentEmail ? { customer_email: order.parentEmail } : {}),
-        });
+        };
+        let session;
+        try {
+          session = await stripeRequest('POST', '/v1/checkout/sessions', {
+            ...baseSessionParams,
+            'managed_payments[enabled]': 'false',
+          });
+        } catch (stripeErr) {
+          if (String(stripeErr.message || '').includes('managed_payments')) {
+            session = await stripeRequest('POST', '/v1/checkout/sessions', baseSessionParams);
+          } else {
+            throw stripeErr;
+          }
+        }
         return sendJson(res, 200, {
           mode: 'stripe',
           checkoutUrl: session.url,
