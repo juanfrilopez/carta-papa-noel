@@ -495,7 +495,15 @@
         </div>
 
         <div class="video-frame-wrapper">
-          <video id="previewVideo" playsinline preload="auto"></video>
+          <video
+            id="previewVideo"
+            playsinline
+            webkit-playsinline
+            disablepictureinpicture
+            disableremoteplayback
+            controlslist="nodownload nofullscreen noremoteplayback"
+            preload="auto"
+          ></video>
 
           <!-- Indicador de preview gratuito -->
           <div id="previewHud" class="preview-hud">

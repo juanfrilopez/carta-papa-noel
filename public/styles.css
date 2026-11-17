@@ -879,6 +879,12 @@ body {
   object-fit: cover;
 }
 
+#previewVideo {
+  pointer-events: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
 .preview-hud {
   position: absolute;
   top: 14px;
@@ -1544,6 +1550,32 @@ body {
   .cost-metrics-box,
   .stats-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #stepPreviewPaywall .video-frame-wrapper {
+    aspect-ratio: auto;
+    overflow: visible;
+    background: transparent;
+    border: none;
+  }
+  #stepPreviewPaywall #previewVideo {
+    height: auto;
+    aspect-ratio: 16 / 9;
+    border-radius: 16px;
+    border: 2px solid rgba(230, 184, 92, 0.35);
+    background: #050a10;
+  }
+  #stepPreviewPaywall .paywall-overlay {
+    position: relative;
+    inset: auto;
+    margin-top: 14px;
+    padding: 0;
+    background: transparent;
+    backdrop-filter: none;
+    overflow: visible;
+  }
+  #stepPreviewPaywall .paywall-card {
+    max-width: 100%;
+    padding: 18px 16px;
   }
 }
 

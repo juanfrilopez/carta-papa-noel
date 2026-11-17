@@ -261,6 +261,22 @@
     }, 2200);
   }
 
+  function revealPaywall() {
+    if (state.currentOrder?.paid) return;
+    previewVideo.pause();
+    if (document.pictureInPictureElement) {
+      document.exitPictureInPicture().catch(() => {});
+    }
+    if (typeof previewVideo.webkitExitFullscreen === 'function') {
+      try {
+        previewVideo.webkitExitFullscreen();
+      } catch {
+        // ignore if not active
+      }
+    }
+    paywallOverlay.classList.remove('hidden');
+  }
+
   function enterPreviewStep(order) {
     state.currentOrder = order;
     previewTitle.textContent = `Papá Noel ha respondido a ${order.childName}`;
@@ -270,7 +286,10 @@
     paywallOverlay.classList.add('hidden');
     previewProgress.style.width = '0%';
 
-    previewVideo.src = `${order.videoUrl}?t=${Date.now()}`;
+    if (previewVideo.disablePictureInPicture !== undefined) {
+      previewVideo.disablePictureInPicture = true;
+    }
+    previewVideo.src = `${order.previewUrl || order.videoUrl}?t=${Date.now()}`;
     previewVideo.currentTime = 0;
     showStep('preview');
 
@@ -313,16 +332,23 @@
     fullVideo.play().catch(() => {});
   }
 
-  // Control del límite de 4.6s en el vídeo preview
+  // Control del límite de 4.6s en el vídeo preview y bloqueo de PiP/fullscreen sin pagar
   previewVideo.addEventListener('timeupdate', () => {
     const pct = Math.min(100, (previewVideo.currentTime / PREVIEW_HOOK_SECONDS) * 100);
     previewProgress.style.width = `${pct}%`;
 
-    if (previewVideo.currentTime >= PREVIEW_HOOK_SECONDS && !state.currentOrder?.paid) {
-      previewVideo.pause();
-      paywallOverlay.classList.remove('hidden');
+    if (previewVideo.currentTime >= PREVIEW_HOOK_SECONDS - 0.15 && !state.currentOrder?.paid) {
+      revealPaywall();
     }
   });
+
+  previewVideo.addEventListener('ended', () => {
+    previewProgress.style.width = '100%';
+    revealPaywall();
+  });
+
+  previewVideo.addEventListener('enterpictureinpicture', revealPaywall);
+  previewVideo.addEventListener('webkitbeginfullscreen', revealPaywall);
 
   replayHookBtn.addEventListener('click', () => {
     paywallOverlay.classList.add('hidden');

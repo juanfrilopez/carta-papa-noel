@@ -357,6 +357,7 @@ const server = http.createServer(async (req, res) => {
 
       const renderTimeMs = Date.now() - startedAt;
       const videoUrl = `/generated/${orderId}.mp4`;
+      const previewUrl = `/generated/${orderId}_preview.mp4`;
 
       const order = {
         orderId,
@@ -371,6 +372,7 @@ const server = http.createServer(async (req, res) => {
         parentEmail,
         paid: false,
         videoUrl,
+        previewUrl,
         downloadUrl: `/api/download/${orderId}`,
         durationSec: video.durationSec,
         nameCacheHit: speech.nameCacheHit,
@@ -570,6 +572,20 @@ const server = http.createServer(async (req, res) => {
       if (!/^[a-zA-Z0-9_-]+\.mp4$/.test(filename)) {
         res.writeHead(400);
         return res.end('Nombre inválido');
+      }
+      if (filename.endsWith('_preview.mp4')) {
+        return serveFileWithRange(req, res, path.join(GENERATED_DIR, filename));
+      }
+      const orderId = filename.replace(/\.mp4$/, '');
+      const order = orders[orderId];
+      if (!order || !order.paid) {
+        const previewFallback = path.join(GENERATED_DIR, `${orderId}_preview.mp4`);
+        if (fs.existsSync(previewFallback)) {
+          return serveFileWithRange(req, res, previewFallback);
+        }
+        return sendJson(res, 402, {
+          error: 'Desbloquea el vídeo completo por 1,00 € para verlo entero.',
+        });
       }
       return serveFileWithRange(req, res, path.join(GENERATED_DIR, filename));
     }
