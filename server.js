@@ -736,15 +736,28 @@ const server = http.createServer(async (req, res) => {
       const downloadUrl = `${origin}/api/download/${encodeURIComponent(order.orderId)}`;
 
       if (getResendApiKey()) {
-        await sendOrderEmail(order, origin);
-        return sendJson(res, 200, {
-          ok: true,
-          mode: 'resend',
-          email,
-          shareUrl,
-          downloadUrl,
-          order,
-        });
+        try {
+          await sendOrderEmail(order, origin);
+          return sendJson(res, 200, {
+            ok: true,
+            mode: 'resend',
+            email,
+            shareUrl,
+            downloadUrl,
+            order,
+          });
+        } catch (mailErr) {
+          console.warn('[email] Resend fallback a mailto:', mailErr.message);
+          return sendJson(res, 200, {
+            ok: true,
+            mode: 'mailto',
+            email,
+            shareUrl,
+            downloadUrl,
+            resendNotice: mailErr.message,
+            order,
+          });
+        }
       }
 
       return sendJson(res, 200, {
