@@ -18,12 +18,18 @@ const STRIPE_CONFIG_FILE = path.join(GENERATED_DIR, 'stripe_config.json');
 
 fs.mkdirSync(GENERATED_DIR, { recursive: true });
 
-let stripeConfig = { secretKey: (process.env.STRIPE_SECRET_KEY || '').trim() };
+let stripeConfig = {
+  secretKey: (process.env.STRIPE_SECRET_KEY || '').trim(),
+  promoCode: (process.env.PROMO_CODE || 'ELFO2026').trim(),
+};
 try {
   if (fs.existsSync(STRIPE_CONFIG_FILE)) {
     const saved = JSON.parse(fs.readFileSync(STRIPE_CONFIG_FILE, 'utf8'));
     if (typeof saved.secretKey === 'string' && saved.secretKey.trim()) {
       stripeConfig.secretKey = saved.secretKey.trim();
+    }
+    if (typeof saved.promoCode === 'string' && saved.promoCode.trim()) {
+      stripeConfig.promoCode = saved.promoCode.trim();
     }
   }
 } catch (err) {
@@ -34,6 +40,10 @@ function getStripeSecretKey() {
   return (stripeConfig.secretKey || process.env.STRIPE_SECRET_KEY || '').trim();
 }
 
+function getPromoCode() {
+  return (stripeConfig.promoCode || process.env.PROMO_CODE || 'ELFO2026').trim();
+}
+
 function maskKey(k) {
   if (!k) return '';
   if (k.length <= 12) return `${k.slice(0, 4)}...`;
@@ -42,7 +52,17 @@ function maskKey(k) {
 
 function saveStripeConfig() {
   try {
-    fs.writeFileSync(STRIPE_CONFIG_FILE, JSON.stringify({ secretKey: stripeConfig.secretKey }, null, 2));
+    fs.writeFileSync(
+      STRIPE_CONFIG_FILE,
+      JSON.stringify(
+        {
+          secretKey: stripeConfig.secretKey,
+          promoCode: stripeConfig.promoCode,
+        },
+        null,
+        2
+      )
+    );
   } catch (err) {
     console.error('[server] Error guardando stripe_config.json:', err.message);
   }
@@ -217,15 +237,18 @@ function stripeRequest(method, apiPath, formParams = null) {
   });
 }
 
-function getStatsPayload() {
+function getStatsPayload(includeAdminSecrets = false) {
   const cacheStats = voiceEngine.getCacheStats();
   const orderList = Object.values(orders);
   const sk = getStripeSecretKey();
+  const promo = getPromoCode();
   return {
     ...cacheStats,
     stripeConfigured: Boolean(sk),
     stripeMode: sk.startsWith('sk_live_') ? 'live' : sk.startsWith('sk_test_') ? 'test' : 'demo',
     stripeKeyMasked: maskKey(sk),
+    promoCodeConfigured: Boolean(promo),
+    ...(includeAdminSecrets ? { promoCode: promo } : {}),
     totalOrders: orderList.length,
     unlockedOrders: orderList.filter((o) => o.paid).length,
     baseVideoReady: fs.existsSync(path.join(ASSETS_DIR, 'santa_base.mp4')),
@@ -321,7 +344,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && pathname === '/api/stats') {
-      return sendJson(res, 200, getStatsPayload());
+      const includeAdmin = parsedUrl.searchParams.get('admin') === '1';
+      return sendJson(res, 200, getStatsPayload(includeAdmin));
     }
 
     if (req.method === 'POST' && pathname === '/api/send-letter') {
@@ -404,6 +428,7 @@ const server = http.createServer(async (req, res) => {
       if (sk) {
         const baseSessionParams = {
           mode: 'payment',
+          allow_promotion_codes: 'true',
           client_reference_id: order.orderId,
           'metadata[orderId]': order.orderId,
           'metadata[tier]': tier,
@@ -455,6 +480,25 @@ const server = http.createServer(async (req, res) => {
 
       const sk = getStripeSecretKey();
       let verifiedTier = body.tier === 'pack' ? 'pack' : 'standard';
+
+      const submittedPromo = String(body.promoCode || '').trim();
+      const activePromo = getPromoCode();
+      const isValidPromo =
+        Boolean(submittedPromo && activePromo) &&
+        submittedPromo.toUpperCase() === activePromo.toUpperCase();
+
+      if (submittedPromo && !isValidPromo) {
+        return sendJson(res, 403, { error: 'Código de invitación no válido.' });
+      }
+
+      if (isValidPromo) {
+        order.paid = true;
+        order.paidAt = new Date().toISOString();
+        order.tier = 'pack';
+        order.unlockedWithPromo = true;
+        saveOrders();
+        return sendJson(res, 200, { ok: true, order });
+      }
 
       if (sk) {
         if (!body.sessionId) {
@@ -537,20 +581,46 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && pathname === '/api/stripe-config') {
       const body = await readJsonBody(req);
+      let updated = false;
+
+      if (typeof body.promoCode === 'string' && body.promoCode.trim()) {
+        stripeConfig.promoCode = body.promoCode.trim().toUpperCase().slice(0, 30);
+        updated = true;
+      }
+
       if (body.clear === true) {
         stripeConfig.secretKey = '';
         saveStripeConfig();
-        return sendJson(res, 200, { ok: true, stats: getStatsPayload() });
-      }
-      const key = String(body.secretKey || '').trim();
-      if (!key.startsWith('sk_test_') && !key.startsWith('sk_live_')) {
-        return sendJson(res, 400, {
-          error: 'La clave secreta de Stripe debe empezar por sk_test_ o sk_live_',
+        return sendJson(res, 200, {
+          ok: true,
+          promoCode: getPromoCode(),
+          stats: getStatsPayload(true),
         });
       }
-      stripeConfig.secretKey = key;
+
+      if (typeof body.secretKey === 'string' && body.secretKey.trim()) {
+        const key = body.secretKey.trim();
+        if (!key.startsWith('sk_test_') && !key.startsWith('sk_live_')) {
+          return sendJson(res, 400, {
+            error: 'La clave secreta de Stripe debe empezar por sk_test_ o sk_live_',
+          });
+        }
+        stripeConfig.secretKey = key;
+        updated = true;
+      }
+
+      if (!updated) {
+        return sendJson(res, 400, {
+          error: 'Introduce una clave de Stripe o un código de invitación válido.',
+        });
+      }
+
       saveStripeConfig();
-      return sendJson(res, 200, { ok: true, stats: getStatsPayload() });
+      return sendJson(res, 200, {
+        ok: true,
+        promoCode: getPromoCode(),
+        stats: getStatsPayload(true),
+      });
     }
 
     if (req.method === 'GET' && pathname.startsWith('/api/download/')) {

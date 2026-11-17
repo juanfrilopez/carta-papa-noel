@@ -51,6 +51,11 @@
   const unlockBtn = document.getElementById('unlockBtn');
   const unlockPriceText = document.getElementById('unlockPriceText');
   const replayHookBtn = document.getElementById('replayHookBtn');
+  const togglePromoBtn = document.getElementById('togglePromoBtn');
+  const promoBox = document.getElementById('promoBox');
+  const promoCodeInput = document.getElementById('promoCodeInput');
+  const applyPromoBtn = document.getElementById('applyPromoBtn');
+  const promoError = document.getElementById('promoError');
   const playPreviewBtn = document.getElementById('playPreviewBtn');
   const backToFormBtn1 = document.getElementById('backToFormBtn1');
 
@@ -86,7 +91,9 @@
   const saveTtsConfigBtn = document.getElementById('saveTtsConfigBtn');
   const ttsConfigStatus = document.getElementById('ttsConfigStatus');
   const stripeSecretKeyInput = document.getElementById('stripeSecretKeyInput');
+  const promoCodeAdminInput = document.getElementById('promoCodeAdminInput');
   const saveStripeConfigBtn = document.getElementById('saveStripeConfigBtn');
+  const savePromoCodeBtn = document.getElementById('savePromoCodeBtn');
   const clearStripeConfigBtn = document.getElementById('clearStripeConfigBtn');
   const stripeConfigStatus = document.getElementById('stripeConfigStatus');
 
@@ -284,6 +291,9 @@
     paywallChildName.textContent = order.childName;
     paywallDuration.textContent = Math.round(order.durationSec || 16);
     paywallOverlay.classList.add('hidden');
+    promoBox?.classList.add('hidden');
+    promoError?.classList.add('hidden');
+    if (promoCodeInput) promoCodeInput.value = '';
     previewProgress.style.width = '0%';
 
     if (previewVideo.disablePictureInPicture !== undefined) {
@@ -430,6 +440,9 @@
         }),
       }).then((r) => r.json());
 
+      if (checkoutRes.error) {
+        throw new Error(checkoutRes.error);
+      }
       if (checkoutRes.mode === 'stripe' && checkoutRes.checkoutUrl) {
         window.location.href = checkoutRes.checkoutUrl;
         return;
@@ -455,6 +468,66 @@
     } finally {
       unlockBtn.disabled = false;
       unlockBtn.innerHTML = origText;
+    }
+  });
+
+  if (togglePromoBtn && promoBox) {
+    togglePromoBtn.addEventListener('click', () => {
+      promoBox.classList.toggle('hidden');
+      promoError?.classList.add('hidden');
+      if (!promoBox.classList.contains('hidden')) {
+        promoCodeInput?.focus();
+      }
+    });
+  }
+
+  async function redeemPromoCode() {
+    if (!state.currentOrder || !promoCodeInput || !applyPromoBtn) return;
+    const promoCode = promoCodeInput.value.trim();
+    if (!promoCode) {
+      if (promoError) {
+        promoError.textContent = 'Escribe un código de invitación.';
+        promoError.classList.remove('hidden');
+      }
+      return;
+    }
+
+    applyPromoBtn.disabled = true;
+    promoError?.classList.add('hidden');
+    const origLabel = applyPromoBtn.textContent;
+    applyPromoBtn.textContent = 'Canjeando...';
+
+    try {
+      const unlockData = await fetch('/api/unlock-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: state.currentOrder.orderId,
+          tier: 'pack',
+          promoCode,
+        }),
+      }).then((r) => r.json());
+
+      if (!unlockData.ok) {
+        throw new Error(unlockData.error || 'Código de invitación no válido');
+      }
+      enterUnlockedStep(unlockData.order);
+    } catch (err) {
+      if (promoError) {
+        promoError.textContent = err.message;
+        promoError.classList.remove('hidden');
+      }
+    } finally {
+      applyPromoBtn.disabled = false;
+      applyPromoBtn.textContent = origLabel;
+    }
+  }
+
+  applyPromoBtn?.addEventListener('click', redeemPromoCode);
+  promoCodeInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      redeemPromoCode();
     }
   });
 
@@ -487,7 +560,7 @@
   // Panel del creador
   async function loadCreatorStats() {
     try {
-      const data = await fetch('/api/stats').then((r) => r.json());
+      const data = await fetch(isAdmin ? '/api/stats?admin=1' : '/api/stats').then((r) => r.json());
       statNamesCount.textContent = data.cachedNamesCount ?? 0;
       statSegmentsCount.textContent = data.cachedSegmentsCount ?? 0;
       statOrdersCount.textContent = data.totalOrders ?? 0;
@@ -513,6 +586,9 @@
         stripeSecretKeyInput.placeholder = data.stripeKeyMasked
           ? `Actual: ${data.stripeKeyMasked} (pegar nueva clave para cambiar)`
           : 'sk_test_... o sk_live_...';
+      }
+      if (promoCodeAdminInput && data.promoCode) {
+        promoCodeAdminInput.value = data.promoCode;
       }
 
       if (data.ttsConfig) {
@@ -636,6 +712,32 @@
         return;
       }
       updateStripeConfig({ secretKey }, 'Guardando clave Stripe...');
+    });
+  }
+
+  if (savePromoCodeBtn) {
+    savePromoCodeBtn.addEventListener('click', async () => {
+      const promoCode = (promoCodeAdminInput?.value || '').trim();
+      if (!promoCode) {
+        if (stripeConfigStatus) stripeConfigStatus.textContent = '❌ Escribe un código válido';
+        return;
+      }
+      savePromoCodeBtn.disabled = true;
+      if (stripeConfigStatus) stripeConfigStatus.textContent = 'Guardando código gratis...';
+      try {
+        const res = await fetch('/api/stripe-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ promoCode }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Error guardando código');
+        if (stripeConfigStatus) stripeConfigStatus.textContent = `🎟️ Código gratis activo: ${res.promoCode}`;
+        await loadCreatorStats();
+      } catch (err) {
+        if (stripeConfigStatus) stripeConfigStatus.textContent = `❌ ${err.message}`;
+      } finally {
+        savePromoCodeBtn.disabled = false;
+      }
     });
   }
 

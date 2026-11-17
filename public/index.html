@@ -552,6 +552,22 @@
               <button id="replayHookBtn" type="button" class="btn-ghost">
                 ↺ Volver a ver el saludo inicial gratis
               </button>
+              <button id="togglePromoBtn" type="button" class="promo-toggle-link">
+                🎟️ ¿Tienes un código de invitación?
+              </button>
+              <div id="promoBox" class="promo-box hidden">
+                <input
+                  id="promoCodeInput"
+                  type="text"
+                  maxlength="30"
+                  placeholder="Escribe tu código mágico..."
+                  autocomplete="off"
+                />
+                <button id="applyPromoBtn" type="button" class="btn-secondary btn-promo-apply">
+                  Canjear
+                </button>
+              </div>
+              <p id="promoError" class="promo-error hidden"></p>
               <p class="payment-note" id="paymentModeNote">
                 🔒 Pago único 100% seguro • Sin registros ni suscripciones • Descarga inmediata
               </p>
@@ -742,10 +758,17 @@
               <label for="stripeSecretKeyInput">STRIPE_SECRET_KEY</label>
               <input id="stripeSecretKeyInput" type="password" placeholder="sk_test_... o sk_live_..." />
             </div>
+            <div class="tts-field tts-full" style="margin-top:4px;">
+              <label for="promoCodeAdminInput">Código de Invitación 100% Gratis (sin pasar por Stripe)</label>
+              <input id="promoCodeAdminInput" type="text" maxlength="30" placeholder="Ej: ELFO2026" />
+            </div>
           </div>
           <div class="creator-actions-inline" style="margin-top:10px;">
             <button id="saveStripeConfigBtn" type="button" class="btn-secondary">
               💳 Activar Clave Stripe
+            </button>
+            <button id="savePromoCodeBtn" type="button" class="btn-secondary">
+              🎟️ Guardar Código Gratis
             </button>
             <button id="clearStripeConfigBtn" type="button" class="btn-ghost">
               Volver a Modo Demo
