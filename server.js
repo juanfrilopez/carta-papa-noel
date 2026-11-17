@@ -20,7 +20,7 @@ fs.mkdirSync(GENERATED_DIR, { recursive: true });
 
 let stripeConfig = {
   secretKey: (process.env.STRIPE_SECRET_KEY || '').trim(),
-  promoCode: (process.env.PROMO_CODE || 'ELFO2026').trim(),
+  promoCode: (process.env.PROMO_CODE || 'JULIETA27').trim(),
 };
 try {
   if (fs.existsSync(STRIPE_CONFIG_FILE)) {
@@ -41,7 +41,7 @@ function getStripeSecretKey() {
 }
 
 function getPromoCode() {
-  return (stripeConfig.promoCode || process.env.PROMO_CODE || 'ELFO2026').trim();
+  return (stripeConfig.promoCode || process.env.PROMO_CODE || 'JULIETA27').trim();
 }
 
 function maskKey(k) {
