@@ -4,7 +4,7 @@
   const state = {
     achievement: 'cole',
     behavior: 'super_bien',
-    selectedTier: 'standard',
+    selectedTier: 'pack',
     currentOrder: null,
     musicDesired: false,
   };
