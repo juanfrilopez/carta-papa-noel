@@ -843,24 +843,44 @@
         </div>
 
         <div class="creator-section">
-          <h3>5. Envío Automático por Email (Resend API)</h3>
+          <h3>5. Envío Automático Gratis desde tu Gmail (sin dominio propio)</h3>
           <p>
-            Pega tu clave gratuita de <a href="https://resend.com" target="_blank" rel="noopener" style="color:#f7dfa0;">Resend</a> (<code>re_...</code>) para enviar automáticamente el enlace del vídeo al correo de los padres tras el pago o código de invitación:
+            Railway bloquea puertos SMTP en planes gratuitos, así que la forma más fiable y 100 % gratis de enviar desde <code>juanfri1995@gmail.com</code> a cualquier cliente es pegar este script en <a href="https://script.google.com" target="_blank" rel="noopener" style="color:#f7dfa0;">script.google.com</a> (<em>Implementar → Aplicación web → Acceso: Cualquier usuario</em>):
           </p>
+          <pre class="prompt-box" id="gasScriptBox">function doPost(e) {
+  var d = JSON.parse(e.postData.contents);
+  MailApp.sendEmail({ to: d.to, subject: d.subject, htmlBody: d.html, body: d.text || '', name: d.senderName || 'Papá Noel', replyTo: d.replyTo || undefined });
+  return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+          <div class="creator-actions-inline" style="margin-bottom:10px;">
+            <button id="copyGasCodeBtn" type="button" class="btn-ghost">📋 Copiar script Gmail</button>
+          </div>
           <div class="tts-config-grid">
-            <div class="tts-field">
-              <label for="resendApiKeyInput">RESEND_API_KEY</label>
-              <input id="resendApiKeyInput" type="password" placeholder="re_..." />
+            <div class="tts-field tts-full">
+              <label for="gmailWebhookInput">URL Puente HTTPS de Google Apps Script (GMAIL_WEBHOOK_URL)</label>
+              <input id="gmailWebhookInput" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
             </div>
             <div class="tts-field">
-              <label for="resendFromInput">Remitente (RESEND_FROM_EMAIL)</label>
+              <label for="gmailAppPassInput">Opcional local/Pro: Contraseña de aplicación Gmail</label>
+              <input id="gmailAppPassInput" type="password" placeholder="xxxx xxxx xxxx xxxx" />
+            </div>
+            <div class="tts-field">
+              <label for="resendApiKeyInput">Opcional dominio propio: RESEND_API_KEY</label>
+              <input id="resendApiKeyInput" type="password" placeholder="re_..." />
+            </div>
+            <div class="tts-field tts-full">
+              <label for="resendFromInput">Remitente Resend (RESEND_FROM_EMAIL)</label>
               <input id="resendFromInput" type="text" placeholder="Papá Noel <onboarding@resend.dev>" />
             </div>
           </div>
           <div class="creator-actions-inline" style="margin-top:10px;">
-            <button id="saveResendConfigBtn" type="button" class="btn-secondary">
-              ✉️ Guardar Email Resend
+            <button id="saveGmailConfigBtn" type="button" class="btn-secondary">
+              ✉️ Guardar Puente Gmail
             </button>
+            <button id="saveResendConfigBtn" type="button" class="btn-ghost">
+              Guardar Resend
+            </button>
+            <span id="gmailConfigStatus" class="status-inline"></span>
             <span id="resendConfigStatus" class="status-inline"></span>
           </div>
         </div>
@@ -872,7 +892,7 @@
 GEMINI_TTS_MODEL="gemini-3.8-flash-tts" \
 GEMINI_TTS_VOICE="Charon" \
 STRIPE_SECRET_KEY="sk_live_o_sk_test_..." \
-RESEND_API_KEY="re_..." \
+GMAIL_WEBHOOK_URL="https://script.google.com/macros/s/.../exec" \
 node server.js</pre>
         </div>
       </div>

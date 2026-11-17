@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const https = require('https');
+const tls = require('tls');
 const { URL } = require('url');
 
 const voiceEngine = require('./lib/voiceEngine');
@@ -25,6 +26,9 @@ let stripeConfig = {
   resendFrom: (
     process.env.RESEND_FROM_EMAIL || 'Papá Noel • Polo Norte <onboarding@resend.dev>'
   ).trim(),
+  gmailWebhookUrl: (process.env.GMAIL_WEBHOOK_URL || '').trim(),
+  gmailUser: (process.env.GMAIL_USER || 'juanfri1995@gmail.com').trim(),
+  gmailAppPassword: (process.env.GMAIL_APP_PASSWORD || '').trim(),
   supportEmail: (process.env.SUPPORT_EMAIL || 'juanfri1995@gmail.com').trim(),
 };
 try {
@@ -41,6 +45,15 @@ try {
     }
     if (typeof saved.resendFrom === 'string' && saved.resendFrom.trim()) {
       stripeConfig.resendFrom = saved.resendFrom.trim();
+    }
+    if (typeof saved.gmailWebhookUrl === 'string' && saved.gmailWebhookUrl.trim()) {
+      stripeConfig.gmailWebhookUrl = saved.gmailWebhookUrl.trim();
+    }
+    if (typeof saved.gmailUser === 'string' && saved.gmailUser.trim()) {
+      stripeConfig.gmailUser = saved.gmailUser.trim();
+    }
+    if (typeof saved.gmailAppPassword === 'string' && saved.gmailAppPassword.trim()) {
+      stripeConfig.gmailAppPassword = saved.gmailAppPassword.trim();
     }
     if (typeof saved.supportEmail === 'string' && saved.supportEmail.trim()) {
       stripeConfig.supportEmail = saved.supportEmail.trim();
@@ -70,6 +83,22 @@ function getResendFrom() {
   ).trim();
 }
 
+function getGmailWebhookUrl() {
+  return (stripeConfig.gmailWebhookUrl || process.env.GMAIL_WEBHOOK_URL || '').trim();
+}
+
+function getGmailUser() {
+  return (stripeConfig.gmailUser || process.env.GMAIL_USER || 'juanfri1995@gmail.com').trim();
+}
+
+function getGmailAppPassword() {
+  return (stripeConfig.gmailAppPassword || process.env.GMAIL_APP_PASSWORD || '').trim();
+}
+
+function hasAutoEmailProvider() {
+  return Boolean(getGmailWebhookUrl() || (getGmailUser() && getGmailAppPassword()) || getResendApiKey());
+}
+
 function getSupportEmail() {
   return (stripeConfig.supportEmail || process.env.SUPPORT_EMAIL || 'juanfri1995@gmail.com').trim();
 }
@@ -90,6 +119,9 @@ function saveStripeConfig() {
           promoCode: stripeConfig.promoCode,
           resendApiKey: stripeConfig.resendApiKey,
           resendFrom: stripeConfig.resendFrom,
+          gmailWebhookUrl: stripeConfig.gmailWebhookUrl,
+          gmailUser: stripeConfig.gmailUser,
+          gmailAppPassword: stripeConfig.gmailAppPassword,
           supportEmail: stripeConfig.supportEmail,
         },
         null,
@@ -270,6 +302,162 @@ function stripeRequest(method, apiPath, formParams = null) {
   });
 }
 
+function httpsJsonPostFollowRedirects(targetUrl, payload, depth = 0, method = 'POST') {
+  if (depth > 4) {
+    return Promise.reject(new Error('Demasiadas redirecciones en webhook de Gmail'));
+  }
+  const parsedUrl = new URL(targetUrl);
+  const body = method === 'POST' ? JSON.stringify(payload) : null;
+  const headers = body
+    ? {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      }
+    : {};
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || 443,
+        path: `${parsedUrl.pathname}${parsedUrl.search}`,
+        method,
+        headers,
+        timeout: 15000,
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+            const nextUrl = new URL(res.headers.location, targetUrl).toString();
+            const nextMethod = [307, 308].includes(res.statusCode) ? method : 'GET';
+            httpsJsonPostFollowRedirects(nextUrl, payload, depth + 1, nextMethod)
+              .then(resolve)
+              .catch(reject);
+            return;
+          }
+          const raw = Buffer.concat(chunks).toString('utf8');
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            return reject(new Error(`Gmail webhook HTTP ${res.statusCode}: ${raw.slice(0, 120)}`));
+          }
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.ok === false) {
+              return reject(new Error(parsed.error || 'Error en Google Apps Script'));
+            }
+            resolve(parsed);
+          } catch {
+            // Google Apps Script a veces devuelve HTML de permisos si no está desplegado como "Cualquier usuario"
+            if (raw.includes('accounts.google.com') || raw.includes('<!DOCTYPE')) {
+              return reject(new Error('Google Script requiere acceso público ("Cualquier usuario")'));
+            }
+            resolve({ ok: true, raw: raw.slice(0, 120) });
+          }
+        });
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('Timeout conectando con Google Apps Script')));
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+async function sendViaGmailWebhook({ to, subject, html, text, replyTo }) {
+  const webhookUrl = getGmailWebhookUrl();
+  if (!webhookUrl) {
+    throw new Error('GMAIL_WEBHOOK_URL no configurada');
+  }
+  return httpsJsonPostFollowRedirects(webhookUrl, {
+    to,
+    subject,
+    html,
+    text,
+    replyTo,
+    senderName: 'Papá Noel • Polo Norte',
+  });
+}
+
+function sendViaGmailSmtp({ user, appPassword, to, subject, html, replyTo }) {
+  const cleanPass = String(appPassword || '').replace(/\s+/g, '');
+  if (!user || !cleanPass) {
+    return Promise.reject(new Error('Faltan credenciales SMTP de Gmail'));
+  }
+
+  const encodeHeader = (str) => `=?UTF-8?B?${Buffer.from(str, 'utf8').toString('base64')}?=`;
+  const b64Body = Buffer.from(html, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+  const mimeMessage = [
+    `From: ${encodeHeader('Papá Noel • Polo Norte')} <${user}>`,
+    `To: <${to}>`,
+    ...(replyTo ? [`Reply-To: <${replyTo}>`] : []),
+    `Subject: ${encodeHeader(subject)}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    b64Body,
+    '.',
+  ].join('\r\n');
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let buffer = '';
+    let step = 0;
+
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      reject(err);
+    };
+
+    const socket = tls.connect({
+      host: 'smtp.gmail.com',
+      port: 465,
+      servername: 'smtp.gmail.com',
+      timeout: 10000,
+    });
+
+    socket.setTimeout(10000);
+    socket.on('timeout', () => fail(new Error('Timeout SMTP Gmail (puerto 465 bloqueado o lento)')));
+    socket.on('error', fail);
+
+    const steps = [
+      { expected: '220', write: `EHLO carta-papa-noel.local\r\n` },
+      { expected: '250', write: `AUTH LOGIN\r\n` },
+      { expected: '334', write: `${Buffer.from(user, 'utf8').toString('base64')}\r\n` },
+      { expected: '334', write: `${Buffer.from(cleanPass, 'utf8').toString('base64')}\r\n` },
+      { expected: '235', write: `MAIL FROM:<${user}>\r\n` },
+      { expected: '250', write: `RCPT TO:<${to}>\r\n` },
+      { expected: '250', write: `DATA\r\n` },
+      { expected: '354', write: `${mimeMessage}\r\n` },
+      { expected: '250', write: `QUIT\r\n`, done: true },
+    ];
+
+    socket.on('data', (chunk) => {
+      buffer += chunk.toString('utf8');
+      const lines = buffer.split('\r\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line || /^\d{3}-/.test(line)) continue;
+        const current = steps[step];
+        if (!current) continue;
+        if (!line.startsWith(current.expected)) {
+          return fail(new Error(`SMTP Gmail respondió ${line}`));
+        }
+        socket.write(current.write);
+        step += 1;
+        if (current.done && !settled) {
+          settled = true;
+          socket.end();
+          resolve({ ok: true, id: `smtp_${Date.now()}` });
+        }
+      }
+    });
+  });
+}
+
 function resendRequest(payload) {
   const apiKey = getResendApiKey();
   if (!apiKey) {
@@ -372,21 +560,64 @@ async function sendOrderEmail(order, origin) {
     `Si necesitas ayuda con tu pedido (${order.orderId}), escribe a ${supportEmail}.`,
   ].join('\n');
 
-  const result = await resendRequest({
-    from: getResendFrom(),
-    to: [recipient],
-    reply_to: supportEmail,
-    subject: `🎅 Vídeo de Papá Noel para ${order.childName} listo para ver y descargar`,
-    html,
-    text,
-  });
+  const subject = `🎅 Vídeo de Papá Noel para ${order.childName} listo para ver y descargar`;
+  const providers = [];
+  if (getGmailWebhookUrl()) {
+    providers.push({
+      name: 'gmail_webhook',
+      run: () => sendViaGmailWebhook({ to: recipient, subject, html, text, replyTo: supportEmail }),
+    });
+  }
+  if (getGmailUser() && getGmailAppPassword()) {
+    providers.push({
+      name: 'gmail_smtp',
+      run: () =>
+        sendViaGmailSmtp({
+          user: getGmailUser(),
+          appPassword: getGmailAppPassword(),
+          to: recipient,
+          subject,
+          html,
+          replyTo: supportEmail,
+        }),
+    });
+  }
+  if (getResendApiKey()) {
+    providers.push({
+      name: 'resend',
+      run: () =>
+        resendRequest({
+          from: getResendFrom(),
+          to: [recipient],
+          reply_to: supportEmail,
+          subject,
+          html,
+          text,
+        }),
+    });
+  }
 
-  order.emailSent = true;
-  order.emailSentTo = recipient;
-  order.emailSentAt = new Date().toISOString();
-  order.resendEmailId = result?.id || null;
-  saveOrders();
-  return result;
+  if (providers.length === 0) {
+    throw new Error('No hay ningún proveedor de envío automático configurado.');
+  }
+
+  let lastErr = null;
+  for (const prov of providers) {
+    try {
+      const result = await prov.run();
+      order.emailSent = true;
+      order.emailSentTo = recipient;
+      order.emailSentAt = new Date().toISOString();
+      order.emailProviderUsed = prov.name;
+      order.resendEmailId = result?.id || null;
+      saveOrders();
+      return { provider: prov.name, result };
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[email] Proveedor ${prov.name} falló para ${recipient}:`, err.message);
+    }
+  }
+  throw lastErr || new Error('No se pudo enviar el correo.');
 }
 
 function getStatsPayload(includeAdminSecrets = false) {
@@ -395,6 +626,8 @@ function getStatsPayload(includeAdminSecrets = false) {
   const sk = getStripeSecretKey();
   const promo = getPromoCode();
   const rk = getResendApiKey();
+  const gw = getGmailWebhookUrl();
+  const gp = getGmailAppPassword();
   return {
     ...cacheStats,
     stripeConfigured: Boolean(sk),
@@ -404,6 +637,11 @@ function getStatsPayload(includeAdminSecrets = false) {
     resendConfigured: Boolean(rk),
     resendKeyMasked: maskKey(rk),
     resendFrom: getResendFrom(),
+    gmailConfigured: Boolean(gw || (getGmailUser() && gp)),
+    gmailWebhookConfigured: Boolean(gw),
+    gmailWebhookMasked: maskKey(gw),
+    gmailUser: getGmailUser(),
+    gmailSmtpConfigured: Boolean(getGmailUser() && gp),
     supportEmail: getSupportEmail(),
     ...(includeAdminSecrets ? { promoCode: promo } : {}),
     totalOrders: orderList.length,
@@ -657,7 +895,7 @@ const server = http.createServer(async (req, res) => {
         order.tier = 'pack';
         order.unlockedWithPromo = true;
         saveOrders();
-        if (order.parentEmail && getResendApiKey() && !order.emailSent) {
+        if (order.parentEmail && hasAutoEmailProvider() && !order.emailSent) {
           try {
             await sendOrderEmail(order, getRequestOrigin(req));
           } catch (mailErr) {
@@ -698,7 +936,7 @@ const server = http.createServer(async (req, res) => {
       order.tier = verifiedTier;
       saveOrders();
 
-      if (order.parentEmail && getResendApiKey() && !order.emailSent) {
+      if (order.parentEmail && hasAutoEmailProvider() && !order.emailSent) {
         try {
           await sendOrderEmail(order, getRequestOrigin(req));
         } catch (mailErr) {
@@ -735,19 +973,20 @@ const server = http.createServer(async (req, res) => {
       const shareUrl = `${origin}/?orderId=${encodeURIComponent(order.orderId)}`;
       const downloadUrl = `${origin}/api/download/${encodeURIComponent(order.orderId)}`;
 
-      if (getResendApiKey()) {
+      if (hasAutoEmailProvider()) {
         try {
-          await sendOrderEmail(order, origin);
+          const sent = await sendOrderEmail(order, origin);
           return sendJson(res, 200, {
             ok: true,
-            mode: 'resend',
+            mode: sent.provider === 'resend' ? 'resend' : 'gmail',
+            provider: sent.provider,
             email,
             shareUrl,
             downloadUrl,
             order,
           });
         } catch (mailErr) {
-          console.warn('[email] Resend fallback a mailto:', mailErr.message);
+          console.warn('[email] Fallback a mailto:', mailErr.message);
           return sendJson(res, 200, {
             ok: true,
             mode: 'mailto',
@@ -869,9 +1108,30 @@ const server = http.createServer(async (req, res) => {
         updated = true;
       }
 
+      if (typeof body.gmailWebhookUrl === 'string' && body.gmailWebhookUrl.trim()) {
+        const wurl = body.gmailWebhookUrl.trim();
+        if (!wurl.startsWith('https://script.google.com/')) {
+          return sendJson(res, 400, {
+            error: 'La URL del puente Gmail debe empezar por https://script.google.com/',
+          });
+        }
+        stripeConfig.gmailWebhookUrl = wurl;
+        updated = true;
+      }
+
+      if (typeof body.gmailUser === 'string' && body.gmailUser.trim()) {
+        stripeConfig.gmailUser = body.gmailUser.trim().slice(0, 120);
+        updated = true;
+      }
+
+      if (typeof body.gmailAppPassword === 'string' && body.gmailAppPassword.trim()) {
+        stripeConfig.gmailAppPassword = body.gmailAppPassword.trim().replace(/\s+/g, '');
+        updated = true;
+      }
+
       if (!updated) {
         return sendJson(res, 400, {
-          error: 'Introduce una clave válida (Stripe, Resend o código de invitación).',
+          error: 'Introduce una clave o configuración válida.',
         });
       }
 

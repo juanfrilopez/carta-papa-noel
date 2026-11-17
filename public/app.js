@@ -105,6 +105,12 @@
   const resendFromInput = document.getElementById('resendFromInput');
   const saveResendConfigBtn = document.getElementById('saveResendConfigBtn');
   const resendConfigStatus = document.getElementById('resendConfigStatus');
+  const gmailWebhookInput = document.getElementById('gmailWebhookInput');
+  const gmailAppPassInput = document.getElementById('gmailAppPassInput');
+  const saveGmailConfigBtn = document.getElementById('saveGmailConfigBtn');
+  const gmailConfigStatus = document.getElementById('gmailConfigStatus');
+  const copyGasCodeBtn = document.getElementById('copyGasCodeBtn');
+  const gasScriptBox = document.getElementById('gasScriptBox');
 
   // Legal modal
   const legalModal = document.getElementById('legalModal');
@@ -673,11 +679,18 @@
       } else {
         flags.push(data.stripeConfigured ? 'Stripe ✅' : 'Pago Demo');
       }
-      if (data.resendConfigured) {
+      if (data.gmailConfigured) {
+        flags.push('Gmail ✅');
+      } else if (data.resendConfigured) {
         flags.push('Email Resend ✅');
       }
       statIntegrations.textContent = flags.join(' • ');
 
+      if (gmailWebhookInput) {
+        gmailWebhookInput.placeholder = data.gmailWebhookMasked
+          ? `Actual: ${data.gmailWebhookMasked} (pegar nueva URL para cambiar)`
+          : 'https://script.google.com/macros/s/.../exec';
+      }
       if (resendApiKeyInput) {
         resendApiKeyInput.placeholder = data.resendKeyMasked
           ? `Actual: ${data.resendKeyMasked} (pegar nueva clave para cambiar)`
@@ -856,6 +869,48 @@
     });
   }
 
+  copyGasCodeBtn?.addEventListener('click', () => {
+    if (!gasScriptBox) return;
+    navigator.clipboard?.writeText(gasScriptBox.textContent).then(() => {
+      copyGasCodeBtn.textContent = '✅ ¡Script copiado!';
+      setTimeout(() => {
+        copyGasCodeBtn.textContent = '📋 Copiar script Gmail';
+      }, 2000);
+    });
+  });
+
+  if (saveGmailConfigBtn) {
+    saveGmailConfigBtn.addEventListener('click', async () => {
+      const gmailWebhookUrl = (gmailWebhookInput?.value || '').trim();
+      const gmailAppPassword = (gmailAppPassInput?.value || '').trim();
+      if (!gmailWebhookUrl && !gmailAppPassword) {
+        if (gmailConfigStatus) gmailConfigStatus.textContent = '❌ Pega la URL de Google Script o tu contraseña';
+        return;
+      }
+      saveGmailConfigBtn.disabled = true;
+      if (gmailConfigStatus) gmailConfigStatus.textContent = 'Guardando puente Gmail...';
+      try {
+        const res = await fetch('/api/stripe-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(gmailWebhookUrl ? { gmailWebhookUrl } : {}),
+            ...(gmailAppPassword ? { gmailAppPassword } : {}),
+          }),
+        }).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || 'Error guardando Gmail');
+        if (gmailWebhookInput) gmailWebhookInput.value = '';
+        if (gmailAppPassInput) gmailAppPassInput.value = '';
+        if (gmailConfigStatus) gmailConfigStatus.textContent = '✅ Envío desde Gmail activado';
+        await loadCreatorStats();
+      } catch (err) {
+        if (gmailConfigStatus) gmailConfigStatus.textContent = `❌ ${err.message}`;
+      } finally {
+        saveGmailConfigBtn.disabled = false;
+      }
+    });
+  }
+
   if (saveResendConfigBtn) {
     saveResendConfigBtn.addEventListener('click', async () => {
       const resendApiKey = (resendApiKeyInput?.value || '').trim();
@@ -918,7 +973,7 @@
       if (!res.ok) throw new Error(res.error || 'No se pudo enviar el correo.');
       state.currentOrder = res.order || state.currentOrder;
 
-      if (res.mode === 'resend') {
+      if (res.mode === 'resend' || res.mode === 'gmail') {
         unlockedEmailStatus.textContent = `✅ ¡Enviado! Revisa tu correo (${res.email}) o la carpeta de spam.`;
       } else {
         await navigator.clipboard?.writeText(res.shareUrl).catch(() => {});
