@@ -146,7 +146,6 @@ body {
 
 .container {
   position: relative;
-  z-index: 5;
   max-width: 1180px;
   margin: 0 auto;
   padding: 8px 24px 64px;
@@ -919,25 +918,33 @@ body {
 }
 
 .paywall-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(7, 13, 21, 0.86);
+  z-index: 200;
+  background: rgba(7, 13, 21, 0.84);
   backdrop-filter: blur(10px);
-  display: grid;
-  place-items: center;
-  padding: 18px;
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   overflow-y: auto;
 }
 
 .paywall-card {
+  position: relative;
+  z-index: 201;
   width: 100%;
-  max-width: 520px;
+  max-width: 500px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
   background: linear-gradient(160deg, #1b2d40 0%, #101c2a 100%);
   border: 2px solid var(--gold);
   border-radius: 20px;
-  padding: 22px 24px;
+  padding: 20px 22px;
   text-align: center;
-  box-shadow: 0 22px 45px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.78);
+  margin: auto;
 }
 
 .lock-icon {
@@ -1601,30 +1608,7 @@ body {
   .stats-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  #stepPreviewPaywall .video-frame-wrapper {
-    aspect-ratio: auto;
-    overflow: visible;
-    background: transparent;
-    border: none;
-  }
-  #stepPreviewPaywall #previewVideo {
-    height: auto;
-    aspect-ratio: 16 / 9;
-    border-radius: 16px;
-    border: 2px solid rgba(230, 184, 92, 0.35);
-    background: #050a10;
-  }
-  #stepPreviewPaywall .paywall-overlay {
-    position: relative;
-    inset: auto;
-    margin-top: 14px;
-    padding: 0;
-    background: transparent;
-    backdrop-filter: none;
-    overflow: visible;
-  }
-  #stepPreviewPaywall .paywall-card {
-    max-width: 100%;
+  .paywall-card {
     padding: 18px 16px;
   }
 }
