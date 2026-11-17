@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carta Mágica a Papá Noel — Vídeo Personalizado desde Laponia</title>
+  <meta
+    name="description"
+    content="Escribe la carta a Papá Noel con tu peque y recibe al instante un vídeo personalizado desde Laponia donde Papá Noel le llama por su nombre. Saludo inicial gratis."
+  />
+  <meta name="robots" content="index, follow" />
+  <link rel="icon" type="image/png" href="/assets/wax_seal.png" />
+  <link rel="canonical" href="https://carta-papa-noel.onrender.com/" id="canonicalLink" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="es_ES" />
+  <meta property="og:site_name" content="Taller Oficial de Papá Noel" />
+  <meta property="og:title" content="Carta Mágica a Papá Noel — Vídeo Personalizado desde Laponia" />
+  <meta
+    property="og:description"
+    content="Escribe vuestra carta juntos y escucha al instante cómo Papá Noel llama a tu peque por su nombre desde Rovaniemi. Saludo inicial gratis."
+  />
+  <meta property="og:url" content="https://carta-papa-noel.onrender.com/" />
+  <meta property="og:image" content="https://carta-papa-noel.onrender.com/assets/santa_base.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Carta Mágica a Papá Noel — Vídeo Personalizado desde Laponia" />
+  <meta
+    name="twitter:description"
+    content="Escribe la carta a Papá Noel con tu peque y recibe al instante su respuesta personalizada en vídeo desde Laponia."
+  />
+  <meta name="twitter:image" content="https://carta-papa-noel.onrender.com/assets/santa_base.png" />
+
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Product",
+          "name": "Carta Mágica y Vídeo Personalizado de Papá Noel",
+          "description": "Vídeo personalizado desde Rovaniemi donde Papá Noel llama al niño o niña por su nombre, lee su carta y menciona su esfuerzo del año. Saludo inicial gratuito.",
+          "image": "https://carta-papa-noel.onrender.com/assets/santa_base.png",
+          "brand": {
+            "@type": "Brand",
+            "name": "Taller Oficial de Papá Noel"
+          },
+          "offers": {
+            "@type": "Offer",
+            "priceCurrency": "EUR",
+            "price": "1.00",
+            "availability": "https://schema.org/InStock",
+            "url": "https://carta-papa-noel.onrender.com/"
+          },
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": "4.9",
+            "reviewCount": "2840"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "¿Cuánto tarda en llegar el vídeo de Papá Noel?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Es totalmente instantáneo. Mientras vuestro peque disfruta de la animación mágica del sobre volando hacia Laponia, Papá Noel prepara su respuesta personalizada y aparece lista en pantalla en pocos segundos."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "¿Pronuncia bien cualquier nombre, aunque sea poco común o compuesto?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Sí. Papá Noel pronuncia con cariño cualquier nombre español, compuesto o internacional. Además, podréis escuchar el saludo con su nombre gratis antes de decidir si queréis el vídeo completo."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "¿Cómo se lo enseño al peque o lo comparto con la familia?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Al desbloquear el vídeo por 1,00 €, puedes reproducirlo a pantalla completa directamente en el móvil, tablet o TV, y guardar el vídeo listo para compartir con la familia, enviárselo a los abuelos o conservarlo de recuerdo."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "¿Es un pago único o hay algún tipo de suscripción?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Es un pago único de 1,00 € (o 1,99 € si quieres añadir el Diploma Oficial imprimible). Sin cuentas, sin suscripciones ni cargos ocultos."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Mountains+of+Christmas:wght@700&family=Nunito:wght@400;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <canvas id="snowCanvas" aria-hidden="true"></canvas>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon">
+        <img src="/assets/wax_seal.png" alt="Sello Oficial Taller de Papá Noel" class="seal-img" />
+      </span>
+      <div>
+        <strong>Taller Oficial de Papá Noel</strong>
+        <small>Rovaniemi • Laponia</small>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="countdown-pill" id="countdownPill">🎄 Calculando cuenta atrás...</div>
+      <button id="musicToggleBtn" class="music-btn" type="button" aria-pressed="false">
+        🔇 Música Navideña
+      </button>
+      <button id="openCreatorBtn" class="creator-pill hidden" type="button">
+        ⚙️ Panel Admin
+      </button>
+    </div>
+    <audio id="bgMusic" src="/assets/bgm_christmas.wav" loop preload="none"></audio>
+  </header>
+
+  <main class="container">
+    <!-- PASO 1: ESCRIBIR LA CARTA -->
+    <section id="stepCompose" class="card-step active">
+      <div class="hero-header">
+        <div class="hero-badges">
+          <span class="ribbon">✨ Conexión directa con Laponia</span>
+          <span class="rating-pill">★★★★★ 4,9/5 · +2.800 familias emocionadas</span>
+        </div>
+        <h1>Envía tu Carta Mágica a Papá Noel</h1>
+        <p>
+          Escribe vuestra carta juntos, envíala volando hasta el Polo Norte y recibe al instante
+          un <strong>vídeo dedicado de Papá Noel</strong> llamando al peque por su nombre.
+        </p>
+      </div>
+
+      <div class="compose-grid">
+        <form id="letterForm" class="parchment-card">
+          <div class="wax-corner" aria-hidden="true">
+            <img src="/assets/wax_seal.png" alt="" class="seal-img" />
+          </div>
+          <h2 class="parchment-title">Querido Papá Noel...</h2>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="childName">Nombre del niño o niña *</label>
+              <input
+                id="childName"
+                name="childName"
+                type="text"
+                maxlength="40"
+                placeholder="Ej: Lucas, Lucía, Mateo..."
+                required
+              />
+            </div>
+            <div class="field field-small">
+              <label for="age">Edad (opcional)</label>
+              <input
+                id="age"
+                name="age"
+                type="number"
+                min="1"
+                max="15"
+                placeholder="6"
+              />
+            </div>
+          </div>
+
+          <div class="field">
+            <label>¿Qué es lo mejor que has hecho este año?</label>
+            <div class="achievement-grid" id="achievementGrid">
+              <button type="button" class="ach-btn selected" data-value="cole">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <path d="M4 9.5C7 8 11 8.5 14 10.5C17 8.5 21 8 24 9.5V21.5C21 20 17 20.5 14 22.5C11 20.5 7 20 4 21.5Z" />
+                    <path d="M14 10.5V22.5" />
+                    <path d="M7 13.5H10.8M7 16.5H10.5M17.2 13.5H21M17.5 16.5H21" />
+                    <path d="M14 3.5V6.2M12.6 4.8H15.4" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Esfuerzo en el cole</strong>
+                  <small>Lo mucho que he aprendido</small>
+                </div>
+              </button>
+              <button type="button" class="ach-btn" data-value="casa">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <path d="M4.5 13.5L14 5.5L23.5 13.5" />
+                    <path d="M7.5 12V22.5H20.5V12" />
+                    <path d="M12 22.5V16.5C12 15.2 16 15.2 16 16.5V22.5" />
+                    <path d="M18 8.5V5.5H20.5V10.5" />
+                    <path d="M19.5 3.8C20.5 3.1 21 2.2 20.2 1.5" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Ayudar en casa</strong>
+                  <small>Orden, deberes y cariño</small>
+                </div>
+              </button>
+              <button type="button" class="ach-btn" data-value="hermanos">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <path d="M14 22.8C14 22.8 5.2 16.9 5.2 10.6C5.2 7.8 7.4 5.8 10 5.8C11.9 5.8 13.3 7 14 8.5C14.7 7 16.1 5.8 18 5.8C20.6 5.8 22.8 7.8 22.8 10.6C22.8 16.9 14 22.8 14 22.8Z" />
+                    <path d="M3.5 5.5L5.2 6.8M24.5 5.5L22.8 6.8M14 2.5V4.2" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Cuidar a la familia</strong>
+                  <small>Buen hermano / hijo</small>
+                </div>
+              </button>
+              <button type="button" class="ach-btn" data-value="deporte">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <circle cx="15.5" cy="14" r="7.5" />
+                    <path d="M15.5 10.2L18.4 12.4L17.3 15.8H13.7L12.6 12.4Z" />
+                    <path d="M15.5 6.5V10.2M22.3 11.4L18.4 12.4M20 20L17.3 15.8M11 20L13.7 15.8M8.7 11.4L12.6 12.4" />
+                    <path d="M3.2 11.5H6.2M2.5 15H5.5M4 18.5H6.8" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Energía y deporte</strong>
+                  <small>Ganas e ilusión cada día</small>
+                </div>
+              </button>
+              <button type="button" class="ach-btn" data-value="valiente">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <path d="M5 19.5L4.5 9.5L9.8 14L14 7.5L18.2 14L23.5 9.5L23 19.5Z" />
+                    <path d="M5.5 22.5H22.5" />
+                    <circle cx="4.5" cy="7.5" r="0.9" />
+                    <circle cx="14" cy="5.5" r="0.9" />
+                    <circle cx="23.5" cy="7.5" r="0.9" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Ser muy valiente</strong>
+                  <small>Un año genial y muy bueno</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>¿Cómo crees que te has portado este año?</label>
+            <div class="no-lie-banner">
+              <svg class="doodle-inline" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6.5C6 5.2 9.5 5.6 12 7.4C14.5 5.6 18 5.2 21 6.5V18.5C18 17.2 14.5 17.6 12 19.4C9.5 17.6 6 17.2 3 18.5Z" />
+                <path d="M12 7.4V19.4" />
+                <path d="M16.5 3.5L19.5 6.5" />
+              </svg>
+              <strong>¡Recuerda no mentir!</strong> El Gran Libro de Papá Noel y sus elfos lo saben todo...
+            </div>
+            <div class="behavior-grid" id="behaviorGrid">
+              <button type="button" class="beh-btn selected" data-behavior="super_bien">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <ellipse cx="14" cy="5.2" rx="6.5" ry="1.8" />
+                    <circle cx="14" cy="15.5" r="7.8" />
+                    <path d="M10.2 14.2C10.8 13.3 11.8 13.3 12.3 14.2" />
+                    <path d="M15.7 14.2C16.3 13.3 17.3 13.3 17.8 14.2" />
+                    <path d="M10.8 17.8C12 19.6 16 19.6 17.2 17.8" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>¡Súper bien!</strong>
+                  <small>Casi un angelito todo el año</small>
+                </div>
+              </button>
+              <button type="button" class="beh-btn" data-behavior="casi_siempre">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <circle cx="14" cy="14.5" r="8.2" />
+                    <path d="M10.2 12.8C10.8 11.9 11.7 11.9 12.2 12.8" />
+                    <circle cx="17.2" cy="12.5" r="0.7" />
+                    <path d="M10.4 16.8C11.8 18.8 16.2 18.8 17.6 16.8" />
+                    <path d="M21.5 6.2L23 4.8M22.8 8.8H24.6" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Muy bien, con alguna travesura</strong>
+                  <small>Casi siempre hago caso</small>
+                </div>
+              </button>
+              <button type="button" class="beh-btn" data-behavior="regular">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <circle cx="14" cy="14.5" r="8.2" />
+                    <circle cx="11" cy="12.6" r="0.8" />
+                    <circle cx="17" cy="12.6" r="0.8" />
+                    <path d="M10.8 17.5C12.2 16.6 13.4 18.2 14.8 17.2C15.8 16.5 16.6 17 17.4 17.4" />
+                    <path d="M8.5 15.8L9.8 15.4M18.2 15.4L19.5 15.8" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Un poquito regular...</strong>
+                  <small>A veces me cuesta, ¡pero voy a mejorar!</small>
+                </div>
+              </button>
+              <button type="button" class="beh-btn" data-behavior="travieso">
+                <span class="doodle-wrap" aria-hidden="true">
+                  <svg class="doodle-icon" viewBox="0 0 28 28">
+                    <circle cx="14" cy="15" r="8" />
+                    <path d="M12.8 7.1C12.4 5 14.2 3.8 15.5 4.8C16.5 5.6 15.5 7 14.3 6.8" />
+                    <path d="M9.8 12.2L12.3 13.4M18.2 12.2L15.7 13.4" />
+                    <circle cx="11" cy="14.4" r="0.6" />
+                    <circle cx="17" cy="14.4" r="0.6" />
+                    <path d="M10.4 17.2C12 19.4 16 19.4 17.6 17.2" />
+                  </svg>
+                </span>
+                <div>
+                  <strong>Algo terremoto (¡soy sincero!)</strong>
+                  <small>Prometo portarme de diez hasta Navidad</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="letterText">La carta de deseos</label>
+            <p class="letter-hint">
+              <svg class="doodle-inline" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3.5C16.8 3.5 20.5 7.2 20.5 12C20.5 16.8 16.8 20.5 12 20.5C7.2 20.5 3.5 16.8 3.5 12C3.5 7.2 7.2 3.5 12 3.5Z" />
+                <circle cx="9.2" cy="9.5" r="0.8" />
+                <circle cx="14.6" cy="8.8" r="0.8" />
+                <circle cx="15.2" cy="14.5" r="0.8" />
+                <circle cx="9.5" cy="15" r="0.8" />
+                <circle cx="12" cy="12" r="0.7" />
+              </svg>
+              <em>Pista: Cuéntale qué galletas le vas a dejar junto al árbol, qué te hace más ilusión este año o mándale un saludo a Rudolph...</em>
+            </p>
+            <textarea
+              id="letterText"
+              name="letterText"
+              rows="4"
+              maxlength="800"
+              placeholder="Querido Papá Noel, te dejaremos leche y galletas junto al árbol..."
+            >Este año me he esforzado mucho, he ayudado en casa y me haría muchísima ilusión que pases por nuestro árbol en Nochebuena.</textarea>
+          </div>
+
+          <div class="field">
+            <label for="parentEmail">Correo de mamá o papá (opcional, para el aviso de los elfos)</label>
+            <input
+              id="parentEmail"
+              name="parentEmail"
+              type="email"
+              placeholder="padres@ejemplo.com"
+            />
+          </div>
+
+          <div id="formError" class="error-banner hidden"></div>
+
+          <button id="submitBtn" type="submit" class="btn-magic">
+            <svg class="doodle-inline" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5.5" width="18" height="13" rx="2.2" />
+              <path d="M3.5 6.5L12 13L20.5 6.5" />
+              <circle cx="12" cy="13" r="1.4" />
+            </svg>
+            <span>Sellar y Enviar Carta al Polo Norte</span>
+          </button>
+          <p class="hint-free">Sellado con lacre oficial del Taller de Rovaniemi • Laponia</p>
+        </form>
+
+        <aside class="preview-aside">
+          <div class="santa-preview-box">
+            <video
+              src="/assets/santa_base.mp4"
+              poster="/assets/santa_base.png"
+              autoplay
+              muted
+              loop
+              playsinline
+            ></video>
+            <div class="santa-badge">
+              <span class="live-dot" aria-hidden="true"></span>
+              EN DIRECTO • Cabaña de Rovaniemi (-14 °C)
+            </div>
+          </div>
+          <div class="how-card">
+            <h3>Información para los padres</h3>
+            <ol>
+              <li><strong>Escribís la carta juntos:</strong> El peque cuenta sus deseos y elige su logro y cómo se ha portado este año.</li>
+              <li><strong>Envío mágico en trineo:</strong> La carta vuela en un sobre dorado sellado hasta la cabaña de Papá Noel.</li>
+              <li><strong>Saludo inicial totalmente gratis:</strong> El envío de la carta y los primeros segundos escuchando a Papá Noel decir su nombre son gratis. Después podéis desbloquear el vídeo completo por <strong>1,00 €</strong>.</li>
+            </ol>
+            <div class="zero-cost-pill">
+              🧝 Los elfos preparan tu vídeo al instante • 💛 Vídeo listo para compartir con la familia
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- PRUEBA SOCIAL Y PREGUNTAS FRECUENTES -->
+      <div class="social-proof-wrap">
+        <section class="testimonials-section" aria-label="Opiniones de familias">
+          <h2 class="section-heading">La carita de ilusión que no tiene precio</h2>
+          <div class="testimonials-grid">
+            <article class="testimonial-card">
+              <div class="stars">★★★★★</div>
+              <p>«Cuando oyó a Papá Noel decir su nombre y mencionar lo bien que ayuda en casa, mi hijo se quedó mirando la pantalla con la boca abierta. ¡Mejor euro invertido de la Navidad!»</p>
+              <strong>Laura M. · Mamá de Lucas (6 años)</strong>
+            </article>
+            <article class="testimonial-card">
+              <div class="stars">★★★★★</div>
+              <p>«Le encantó el aviso de no mentir. Marcó “un poquito regular” riéndose y cuando Papá Noel le agradeció su sinceridad casi lloramos de risa y emoción. Se lo mandamos a los abuelos por WhatsApp.»</p>
+              <strong>Carlos y Bea · Papás de Sofía (7 años)</strong>
+            </article>
+            <article class="testimonial-card">
+              <div class="stars">★★★★★</div>
+              <p>«Súper rápido y muy cuidado. La animación del sobre volando ya mete a los niños en el cuento, y el vídeo se descarga perfecto en el móvil en segundos.»</p>
+              <strong>Marta R. · Mamá de Mateo (4 años)</strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="faq-section" aria-label="Preguntas frecuentes">
+          <h2 class="section-heading">Preguntas frecuentes de padres</h2>
+          <div class="faq-list">
+            <details class="faq-item" open>
+              <summary>¿Cuánto tarda en llegar el vídeo de Papá Noel?</summary>
+              <p>Es totalmente instantáneo. Mientras vuestro peque disfruta de la animación mágica del sobre volando hacia Laponia, Papá Noel prepara su respuesta personalizada y aparece lista en pantalla en pocos segundos.</p>
+            </details>
+            <details class="faq-item">
+              <summary>¿Pronuncia bien cualquier nombre, aunque sea poco común o compuesto?</summary>
+              <p>Sí. Papá Noel pronuncia con cariño cualquier nombre español, compuesto o internacional. Además, podréis escuchar el saludo con su nombre gratis antes de decidir si queréis el vídeo completo.</p>
+            </details>
+            <details class="faq-item">
+              <summary>¿Cómo se lo enseño al peque o lo comparto con la familia?</summary>
+              <p>Al desbloquear el vídeo por 1,00 €, puedes reproducirlo a pantalla completa directamente en el móvil, tablet o TV, y guardar el vídeo listo para compartir con la familia, enviárselo a los abuelos o conservarlo de recuerdo.</p>
+            </details>
+            <details class="faq-item">
+              <summary>¿Es un pago único o hay algún tipo de suscripción?</summary>
+              <p>Es un pago único de 1,00 € (o 1,99 € si quieres añadir el Diploma Oficial imprimible). Sin cuentas, sin suscripciones ni cargos ocultos.</p>
+            </details>
+          </div>
+        </section>
+
+        <footer class="site-footer">
+          <p>🎅 Taller Oficial de Papá Noel • Rovaniemi, Laponia • Hecho con magia para familias</p>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PASO 2: ANIMACIÓN DE ENVÍO MÁGICO -->
+    <section id="stepSending" class="card-step">
+      <div class="sending-stage">
+        <div class="stardust-ring"></div>
+        <div class="envelope-wrapper" id="envelopeWrapper">
+          <div class="envelope-back"></div>
+          <div class="letter-sheet">
+            <span>Para: Papá Noel</span>
+            <strong id="flyingChildName">Lucas</strong>
+            <small>Polo Norte • Laponia</small>
+          </div>
+          <div class="envelope-front"></div>
+          <div class="envelope-flap"></div>
+          <div class="wax-seal">
+            <img src="/assets/wax_seal.png" alt="" class="seal-img" />
+          </div>
+        </div>
+
+        <h2 id="sendingStatusTitle">Sellando tu carta con polvo de estrellas...</h2>
+        <p id="sendingStatusDesc">Conectando con la cabaña de Papá Noel en Rovaniemi, Laponia</p>
+
+        <div class="radar-progress">
+          <div class="radar-fill" id="radarFill"></div>
+        </div>
+        <div class="radar-steps">
+          <span class="active" id="rStep1">✉️ Carta sellada</span>
+          <span id="rStep2">🦌 Cruzando el cielo</span>
+          <span id="rStep3">🎅 Papá Noel grabando</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASO 3: PREVIEW EMOCIONAL + PAYWALL 1€ -->
+    <section id="stepPreviewPaywall" class="card-step">
+      <div class="video-stage-card">
+        <div class="stage-top">
+          <span class="ribbon">🎉 ¡Carta recibida en el Polo Norte!</span>
+          <h2 id="previewTitle">Papá Noel ha respondido a Lucas</h2>
+        </div>
+
+        <div class="video-frame-wrapper">
+          <video id="previewVideo" playsinline preload="auto"></video>
+
+          <!-- Indicador de preview gratuito -->
+          <div id="previewHud" class="preview-hud">
+            <span>🎁 Saludo gratuito: escucha cómo llama a <strong id="hudName">Lucas</strong></span>
+            <div class="preview-bar"><div id="previewProgress"></div></div>
+          </div>
+
+          <!-- Cortinilla Paywall cuando llega a los ~4.6s -->
+          <div id="paywallOverlay" class="paywall-overlay hidden">
+            <div class="paywall-card">
+              <div class="lock-icon">✨🔒✨</div>
+              <h3>¡Papá Noel sigue hablando con <span id="paywallChildName">Lucas</span>!</h3>
+              <p>
+                Has visto los primeros segundos de saludo. Desbloquea el mensaje completo de
+                <strong id="paywallDuration">16</strong> segundos y guarda el vídeo listo para compartir con la familia.
+              </p>
+
+              <div class="tier-selector">
+                <label class="tier-option selected" data-tier="standard">
+                  <input type="radio" name="tier" value="standard" checked />
+                  <div>
+                    <strong>Vídeo Mágico Completo</strong>
+                    <small>Ver sin límite y vídeo listo para compartir con la familia</small>
+                  </div>
+                  <span class="price-tag">1,00 €</span>
+                </label>
+                <label class="tier-option" data-tier="pack">
+                  <input type="radio" name="tier" value="pack" />
+                  <div>
+                    <strong>Vídeo Completo + Diploma del Polo Norte</strong>
+                    <small>Incluye certificado oficial imprimible</small>
+                  </div>
+                  <span class="price-tag">1,99 €</span>
+                </label>
+              </div>
+
+              <div class="paywall-benefits">
+                <span>✔ Saludo con su nombre y su carta en el pergamino</span>
+                <span>✔ Mensaje adaptado a su logro y sinceridad</span>
+                <span>✔ Vídeo listo para compartir con la familia y los abuelos</span>
+              </div>
+
+              <button id="unlockBtn" type="button" class="btn-magic btn-unlock">
+                🎁 Desbloquear Vídeo Completo por <span id="unlockPriceText">1,00 €</span>
+              </button>
+              <button id="replayHookBtn" type="button" class="btn-ghost">
+                ↺ Volver a ver el saludo inicial gratis
+              </button>
+              <p class="payment-note" id="paymentModeNote">
+                🔒 Pago único 100% seguro • Sin registros ni suscripciones • Descarga inmediata
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="video-controls-bar">
+          <button id="playPreviewBtn" type="button" class="btn-secondary">
+            ▶ Reproducir saludo inicial gratis
+          </button>
+          <button id="backToFormBtn1" type="button" class="btn-ghost">
+            ← Escribir otra carta
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASO 4: VÍDEO DESBLOQUEADO Y DESCARGA -->
+    <section id="stepUnlocked" class="card-step">
+      <div class="video-stage-card unlocked-card">
+        <div class="stage-top">
+          <span class="ribbon ribbon-gold">🌟 ¡Vídeo Mágico Desbloqueado!</span>
+          <h2 id="unlockedTitle">Mensaje completo de Papá Noel para Lucas</h2>
+        </div>
+
+        <div class="video-frame-wrapper">
+          <video id="fullVideo" controls playsinline preload="auto"></video>
+        </div>
+
+        <div class="unlocked-actions">
+          <button id="fullscreenVideoBtn" type="button" class="btn-magic">
+            📺 Pantalla Completa para el peque
+          </button>
+          <a id="downloadVideoBtn" href="#" class="btn-secondary btn-download-link" download>
+            ⬇️ Guardar vídeo para la familia
+          </a>
+          <a id="whatsappShareBtn" href="#" target="_blank" rel="noopener" class="btn-whatsapp">
+            💬 Compartir por WhatsApp
+          </a>
+          <button id="printDiplomaBtn" type="button" class="btn-secondary">
+            📜 Ver Diploma Oficial
+          </button>
+          <button id="newLetterBtn" type="button" class="btn-ghost">
+            ✉️ Enviar otra carta
+          </button>
+        </div>
+
+        <div class="family-success-card" id="familySuccessCard">
+          <span>🎄</span>
+          <div>
+            <strong>¡Momento mágico listo!</strong>
+            <p>
+              Pulsa en <em>«Pantalla Completa para el peque»</em> o guarda el vídeo en tu móvil para recordar su reacción y compartirla con los abuelos por WhatsApp.
+            </p>
+          </div>
+        </div>
+
+        <!-- Métricas técnicas internas (ocultas para clientes; visibles solo con ?admin=1) -->
+        <div class="cost-metrics-box hidden" id="costMetricsBox">
+          <div class="metric">
+            <span>Coste IA de este vídeo</span>
+            <strong id="metricCost">0,00 €</strong>
+          </div>
+          <div class="metric">
+            <span>Caché del nombre</span>
+            <strong id="metricCache">🆕 Generado y guardado</strong>
+          </div>
+          <div class="metric">
+            <span>Tiempo de montaje FFmpeg</span>
+            <strong id="metricRenderTime">-- ms</strong>
+          </div>
+          <div class="metric">
+            <span>Motor de voz usado</span>
+            <strong id="metricProvider">--</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL PANEL DEL CREADOR (DE 0 A 100) -->
+  <div id="creatorModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2>⚙️ Panel del Creador — Arquitectura Coste 0 €</h2>
+          <p>Estado en tiempo real de tu negocio y pasos para pasar de prototipo local a producción.</p>
+        </div>
+        <button id="closeCreatorBtn" type="button" class="close-btn">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="stats-row" id="creatorStatsGrid">
+          <div class="stat-box">
+            <small>Nombres en caché (0 €)</small>
+            <strong id="statNamesCount">0</strong>
+          </div>
+          <div class="stat-box">
+            <small>Bloques de frase</small>
+            <strong id="statSegmentsCount">0</strong>
+          </div>
+          <div class="stat-box">
+            <small>Cartas generadas</small>
+            <strong id="statOrdersCount">0</strong>
+          </div>
+          <div class="stat-box">
+            <small>ElevenLabs / Stripe</small>
+            <strong id="statIntegrations">Modo Local Gratis</strong>
+          </div>
+        </div>
+
+        <div class="creator-section">
+          <h3>1. Configuración en Vivo de Google AI Studio TTS (Gemini 3.8)</h3>
+          <p>
+            Motor neuronal activo con control directo de actuación. Puedes cambiar de voz, modelo o
+            <strong>instrucciones de tono</strong> en caliente y regenerar al momento:
+          </p>
+          <div class="tts-config-grid">
+            <div class="tts-field">
+              <label for="ttsModelSelect">Modelo TTS</label>
+              <select id="ttsModelSelect">
+                <option value="gemini-3.8-flash-tts">gemini-3.8-flash-tts (Calidad estudio)</option>
+                <option value="gemini-3.8-flash-lite-tts">gemini-3.8-flash-lite-tts (Ultra rápido)</option>
+              </select>
+            </div>
+            <div class="tts-field">
+              <label for="ttsVoiceSelect">Voz de Papá Noel</label>
+              <select id="ttsVoiceSelect">
+                <option value="Charon">Charon (Abuelo grave y cálido)</option>
+                <option value="Orus">Orus (Profunda y serena)</option>
+                <option value="Fenrir">Fenrir (Cuentacuentos resonante)</option>
+                <option value="Enceladus">Enceladus (Suave y mágica)</option>
+                <option value="Puck">Puck (Alegre y expresiva)</option>
+              </select>
+            </div>
+            <div class="tts-field tts-full">
+              <label for="ttsStylePrompt">Prompt de Tono y Actuación</label>
+              <textarea id="ttsStylePrompt" rows="2"></textarea>
+            </div>
+            <div class="tts-field tts-full">
+              <label for="ttsApiKeyInput">GEMINI_API_KEY (opcional si quieres cambiar la actual)</label>
+              <input id="ttsApiKeyInput" type="password" placeholder="Dejar vacío para mantener la clave actual" />
+            </div>
+          </div>
+          <div class="creator-actions-inline" style="margin-top:10px;">
+            <button id="saveTtsConfigBtn" type="button" class="btn-secondary">
+              💾 Guardar Voz/Tono y Vaciar Caché Anterior
+            </button>
+            <span id="ttsConfigStatus" class="status-inline"></span>
+          </div>
+        </div>
+
+        <div class="creator-section">
+          <h3>2. Banco de Nombres a Coste 0 €</h3>
+          <p>
+            Cada nombre nuevo que pide un padre se guarda para siempre en <code>cache/audio/names/</code>.
+            Pulsa aquí para pre-generar los 15 nombres más comunes de España y comprobar la caché instantánea:
+          </p>
+          <div class="creator-actions-inline">
+            <button id="pregenerateBtn" type="button" class="btn-secondary">
+              ⚡ Pre-generar 15 nombres comunes ahora
+            </button>
+            <span id="pregenerateStatus" class="status-inline"></span>
+          </div>
+          <div id="cachedNamesList" class="cached-names-tags"></div>
+        </div>
+
+        <div class="creator-section">
+          <h3>3. Cómo animar a Papá Noel con Kling AI / Runway (1 sola vez)</h3>
+          <p>
+            Ya tienes la imagen perfecta generada en <code>assets/santa_base.png</code> con el bigote tapando
+            completamente la boca. Para darle movimiento hiperrealista de cine, súbela una sola vez a
+            <strong>Kling AI</strong> o <strong>Runway Gen-3</strong> con este prompt y reemplaza
+            <code>assets/santa_base.mp4</code>:
+          </p>
+          <pre class="prompt-box" id="klingPromptBox">Warm cozy Santa Claus in his North Pole wooden cabin sitting in front of a softly crackling fireplace and Christmas tree. He looks warmly at the camera, nodding gently and blinking naturally while holding a glowing golden parchment scroll. His huge thick white mustache moves very subtly as if he is speaking softly behind it, keeping his lips completely hidden beneath the bushy mustache. Cinematic 24fps, stable tripod shot, warm golden holiday lighting.</pre>
+          <button id="copyPromptBtn" type="button" class="btn-ghost">📋 Copiar prompt exacto</button>
+        </div>
+
+        <div class="creator-section">
+          <h3>4. Pasarela de Pago Stripe (Apple Pay / Google Pay / Tarjeta)</h3>
+          <p>
+            Pega tu clave secreta de Stripe (<code>sk_test_...</code> para pruebas o <code>sk_live_...</code> para cobros reales). Si la dejas vacía, la web funciona en modo demo de 1 clic:
+          </p>
+          <div class="tts-config-grid">
+            <div class="tts-field tts-full">
+              <label for="stripeSecretKeyInput">STRIPE_SECRET_KEY</label>
+              <input id="stripeSecretKeyInput" type="password" placeholder="sk_test_... o sk_live_..." />
+            </div>
+          </div>
+          <div class="creator-actions-inline" style="margin-top:10px;">
+            <button id="saveStripeConfigBtn" type="button" class="btn-secondary">
+              💳 Activar Clave Stripe
+            </button>
+            <button id="clearStripeConfigBtn" type="button" class="btn-ghost">
+              Volver a Modo Demo
+            </button>
+            <span id="stripeConfigStatus" class="status-inline"></span>
+          </div>
+        </div>
+
+        <div class="creator-section">
+          <h3>5. Variables de Entorno al Arrancar</h3>
+          <p>El servidor también lee automáticamente tus claves desde variables de entorno al arrancar:</p>
+          <pre class="prompt-box">GEMINI_API_KEY="tu_api_key_de_google_ai_studio" \
+GEMINI_TTS_MODEL="gemini-3.8-flash-tts" \
+GEMINI_TTS_VOICE="Charon" \
+STRIPE_SECRET_KEY="sk_live_o_sk_test_..." \
+node server.js</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DIPLOMA OFICIAL -->
+  <div id="diplomaModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-content diploma-modal">
+      <button id="closeDiplomaBtn" type="button" class="close-btn">✕</button>
+      <div class="diploma-sheet" id="diplomaSheet">
+        <div class="diploma-border">
+          <div class="diploma-seal">
+            <img src="/assets/wax_seal.png" alt="Sello Oficial Polo Norte" class="seal-img" />
+          </div>
+          <p class="diploma-kicker">OFICINA OFICIAL DE NAVIDAD • ROVANIEMI</p>
+          <h2>Certificado de Buen Comportamiento</h2>
+          <p class="diploma-text">Papá Noel y los Elfos del Taller certifican que</p>
+          <h3 id="diplomaName" class="diploma-name">Lucas</h3>
+          <p class="diploma-reason" id="diplomaReason">
+            ha destacado este año por su gran esfuerzo en el cole y está oficialmente en la Lista de Niños Buenos.
+          </p>
+          <div class="diploma-footer">
+            <div>
+              <span>Fecha de registro</span>
+              <strong id="diplomaDate">Navidad</strong>
+            </div>
+            <div class="signature">
+              <em>Papá Noel</em>
+              <small>Firma Oficial del Polo Norte</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="diploma-actions">
+        <button id="printNowBtn" type="button" class="btn-magic">🖨️ Imprimir / Guardar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

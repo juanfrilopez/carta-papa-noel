@@ -1,0 +1,8 @@
+.DS_Store
+.git/
+node_modules/
+__pycache__/
+*.pyc
+generated/
+assets/video_santa_1080p.mp4
+*.log
